@@ -1,0 +1,72 @@
+"""
+User repository for database operations.
+"""
+from typing import Optional, List
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database.models import User
+
+
+class UserRepository:
+    """Repository for User database operations"""
+    
+    def __init__(self, session: AsyncSession):
+        self.session = session
+    
+    async def create(self, username: Optional[str] = None, email: Optional[str] = None) -> User:
+        """Create a new user"""
+        user = User(username=username, email=email)
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+    
+    async def get_by_id(self, user_id: int) -> Optional[User]:
+        """Get user by ID"""
+        result = await self.session.execute(
+            select(User).where(User.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+    
+    async def get_all(self) -> List[User]:
+        """Get all users"""
+        result = await self.session.execute(select(User))
+        return list(result.scalars().all())
+    
+    async def update(
+        self,
+        user_id: int,
+        username: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> Optional[User]:
+        """Update user"""
+        update_values = {}
+        if username is not None:
+            update_values["username"] = username
+        if email is not None:
+            update_values["email"] = email
+        
+        if update_values:
+            from sqlalchemy import update as sql_update
+            await self.session.execute(
+                sql_update(User)
+                .where(User.user_id == user_id)
+                .values(**update_values)
+            )
+            await self.session.commit()
+        
+        # Fetch updated user
+        result = await self.session.execute(
+            select(User).where(User.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+    
+    async def delete(self, user_id: int) -> bool:
+        """Delete a user (cascade will delete bots)"""
+        result = await self.session.execute(
+            delete(User).where(User.user_id == user_id)
+        )
+        await self.session.commit()
+        return result.rowcount > 0
+

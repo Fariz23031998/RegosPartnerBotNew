@@ -1,0 +1,147 @@
+"""
+REGOS Partner operations.
+"""
+import logging
+from typing import Optional, List, Dict, Any
+from regos.api import regos_async_api_request
+from config import APP_NAME
+
+logger = logging.getLogger(APP_NAME)
+
+
+async def search_partner_by_phone(
+    regos_integration_token: str,
+    phone_number: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Search for a partner in REGOS by phone number.
+    
+    According to REGOS API documentation (https://docs.regos.uz/uz/api/store/docpurchase/get):
+    - Uses Partner/Get endpoint with search parameter
+    - Search parameter can search by phone number, name, INN, etc.
+    
+    Args:
+        regos_integration_token: REGOS integration token
+        phone_number: Phone number to search for (can be with or without + prefix)
+        
+    Returns:
+        dict: Partner data if found, None otherwise
+    """
+    if not regos_integration_token:
+        logger.warning("REGOS integration token not provided")
+        return None
+    
+    try:
+        # Normalize phone number for search
+        # Remove common formatting characters
+        normalized_phone = phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        # Remove + prefix if present for search (REGOS might store without +)
+        search_phone = normalized_phone.lstrip("+")
+        
+        # Partner/Get endpoint with search parameter
+        # According to REGOS docs, search can match phones field
+        request_data = {
+            "search": search_phone
+        }
+        
+        logger.info(f"Searching for partner with phone: {search_phone}")
+        response = await regos_async_api_request(
+            endpoint="Partner/Get",
+            request_data=request_data,
+            token=regos_integration_token,
+            timeout_seconds=30
+        )
+        
+        if response.get("ok"):
+            result = response.get("result")
+            # Handle both list and single object responses
+            if result:
+                partners = result if isinstance(result, list) else [result]
+                
+                # Find partner matching the phone number
+                for partner in partners:
+                    if isinstance(partner, dict):
+                        partner_phones = partner.get("phones", "")
+                        partner_phone_str = str(partner_phones) if partner_phones else ""
+                        
+                        # Normalize partner's phone for comparison
+                        partner_phone_normalized = partner_phone_str.replace(" ", "").replace("-", "").replace("(", "").replace(")", "").lstrip("+")
+                        
+                        # Check if phone matches (exact match or contains)
+                        if (search_phone in partner_phone_normalized or 
+                            partner_phone_normalized in search_phone or
+                            normalized_phone in partner_phone_str or
+                            partner_phone_str in normalized_phone):
+                            logger.info(f"Found partner: {partner.get('id')} - {partner.get('name')}")
+                            return partner
+                
+                # If no exact match found but we have results, return the first one
+                # (REGOS search might return related results by name or other fields)
+                if partners and len(partners) > 0:
+                    logger.info(f"Found {len(partners)} partner(s) from search, using first result")
+                    return partners[0] if isinstance(partners[0], dict) else None
+        
+        logger.info(f"No partner found with phone: {search_phone}")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error searching for partner by phone: {e}", exc_info=True)
+        return None
+
+
+async def update_partner_telegram_id(
+    regos_integration_token: str,
+    partner_id: int,
+    telegram_chat_id: str,
+    existing_partner_data: Dict[str, Any]
+) -> bool:
+    """
+    Update partner's oked field with Telegram chat ID using Partner/Edit endpoint.
+    
+    According to REGOS API documentation (https://docs.regos.uz/uz/api/store/partner/edit):
+    - Uses Partner/Edit endpoint
+    - Updates the oked field with Telegram chat ID (as per user requirement)
+    
+    Note: According to REGOS API, when editing a Partner, we need to send all fields.
+    The oked field will be updated with the Telegram chat ID.
+    
+    Args:
+        regos_integration_token: REGOS integration token
+        partner_id: Partner ID to update
+        telegram_chat_id: Telegram chat ID to store (as string in oked field)
+        existing_partner_data: Current partner data from Partner/Get (needed for edit)
+        
+    Returns:
+        bool: True if update successful, False otherwise
+    """
+    if not regos_integration_token:
+        logger.warning("REGOS integration token not provided")
+        return False
+    
+    try:
+        # Prepare edit data - REGOS Partner/Edit typically requires all fields
+        edit_data = {
+            "id": partner_id,
+            "oked": str(telegram_chat_id),  # Store Telegram chat ID in oked field (as per requirement)
+        }
+   
+        logger.info(f"Updating partner {partner_id} ({existing_partner_data.get('name')}) with Telegram chat ID: {telegram_chat_id}")
+        response = await regos_async_api_request(
+            endpoint="Partner/Edit",
+            request_data=edit_data,
+            token=regos_integration_token,
+            timeout_seconds=30
+        )
+        
+        if response.get("ok"):
+            logger.info(f"Successfully updated partner {partner_id} with Telegram chat ID in oked field")
+            return True
+        else:
+            error_msg = response.get("description", response.get("error", "Unknown error"))
+            logger.error(f"Failed to update partner {partner_id}: {error_msg}")
+            return False
+        
+    except Exception as e:
+        logger.error(f"Error updating partner with Telegram ID: {e}", exc_info=True)
+        return False
+

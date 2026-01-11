@@ -1,0 +1,113 @@
+.token-management {
+  width: 100%;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toggle-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: opacity 0.3s;
+}
+
+.toggle-button.activate {
+  background: #28a745;
+  color: white;
+}
+
+.toggle-button.deactivate {
+  background: #ffc107;
+  color: #333;
+}
+
+.toggle-button:hover {
+  opacity: 0.8;
+}
+
+.edit-button {
+  padding: 6px 12px;
+  background: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.3s;
+}
+
+.edit-button:hover {
+  background: #138496;
+}
+
+.delete-button {
+  padding: 6px 12px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.3s;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.delete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-content select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  background: white;
+}
+
+.modal-content select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* Reuse styles from UserManagement */
+.token-management .loading,
+.token-management .empty-state,
+.token-management .error-message,
+.token-management .section-header,
+.token-management .data-table,
+.token-management .add-button,
+.token-management .modal-overlay,
+.token-management .modal-content,
+.token-management .modal-actions {
+  /* Styles inherited from UserManagement.css */
+}
+
