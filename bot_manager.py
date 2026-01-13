@@ -307,6 +307,52 @@ class BotManager:
                 logger.error(f"Error sending message: {e}")
                 return None
     
+    async def send_document(
+        self,
+        token: str,
+        chat_id: int,
+        document_path: str,
+        caption: Optional[str] = None
+    ) -> Optional[dict]:
+        """Send a document/file via Telegram API"""
+        import os
+        if not os.path.exists(document_path):
+            logger.error(f"File not found: {document_path}")
+            return None
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                with open(document_path, 'rb') as file:
+                    files = {
+                        'document': (os.path.basename(document_path), file, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    }
+                    data = {
+                        'chat_id': chat_id
+                    }
+                    if caption:
+                        data['caption'] = caption
+                    
+                    response = await client.post(
+                        f"https://api.telegram.org/bot{token}/sendDocument",
+                        data=data,
+                        files=files,
+                        timeout=30.0
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get("ok"):
+                            logger.info(f"Successfully sent document to chat {chat_id}")
+                            return result.get("result")
+                        else:
+                            logger.error(f"Failed to send document: {result.get('description')}")
+                    else:
+                        logger.error(f"HTTP error sending document: {response.status_code}")
+                    return None
+            except Exception as e:
+                logger.error(f"Error sending document: {e}", exc_info=True)
+                return None
+    
     async def handle_start_command(
         self, 
         token: str, 

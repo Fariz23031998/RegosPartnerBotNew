@@ -1,0 +1,194 @@
+.checkout {
+  padding: 16px;
+  min-height: 100vh;
+  background: var(--tg-theme-bg-color, #ffffff);
+}
+
+.checkout-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.checkout-header .back-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: var(--tg-theme-button-color, #0088cc);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.checkout-header .back-button:active {
+  opacity: 0.8;
+}
+
+.checkout-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #000000);
+  margin: 0;
+}
+
+.checkout-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.checkout-items h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #000000);
+  margin-bottom: 16px;
+}
+
+.checkout-item {
+  padding: 16px;
+  background: var(--tg-theme-secondary-bg-color, #f9f9f9);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.checkout-item-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--tg-theme-text-color, #000000);
+  margin-bottom: 8px;
+}
+
+.checkout-item-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #999);
+}
+
+.checkout-item-total {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--tg-theme-button-color, #0088cc);
+}
+
+.checkout-total {
+  padding: 20px;
+  background: var(--tg-theme-secondary-bg-color, #f9f9f9);
+  border-radius: 12px;
+}
+
+.checkout-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.checkout-total-amount {
+  font-size: 24px;
+  color: var(--tg-theme-button-color, #0088cc);
+}
+
+.checkout-form {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--tg-theme-secondary-bg-color, #f9f9f9);
+  border-radius: 12px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--tg-theme-button-color, #0088cc);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.checkout-error {
+  padding: 12px;
+  background: #fee;
+  color: #c00;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.checkout-actions {
+  margin-top: 24px;
+}
+
+.checkout-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--tg-theme-button-color, #0088cc);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkout-btn:active:not(:disabled) {
+  opacity: 0.8;
+}
+
+.checkout-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

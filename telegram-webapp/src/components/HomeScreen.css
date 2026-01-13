@@ -1,0 +1,71 @@
+.home-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tg-theme-bg-color, #ffffff);
+  padding: 20px;
+}
+
+.home-container {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.home-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color, #000000);
+  margin-bottom: 40px;
+}
+
+.home-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  align-items: center;
+}
+
+.home-icon-button {
+  width: 100%;
+  max-width: 300px;
+  background: var(--tg-theme-button-color, #0088cc);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border: none;
+  border-radius: 20px;
+  padding: 40px 20px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.2s, opacity 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.home-icon-button:active {
+  transform: scale(0.95);
+  opacity: 0.9;
+}
+
+.icon-wrapper {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.icon-large {
+  font-size: 80px;
+  line-height: 1;
+}
+
+.icon-label {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--tg-theme-button-text-color, #ffffff);
+}

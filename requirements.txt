@@ -6,4 +6,5 @@ httpx
 pydantic
 python-jose[cryptography]
 python-multipart
+openpyxl
 

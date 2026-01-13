@@ -1,5 +1,5 @@
 """
-Database package for the Telegram bot engine.
+Database package exports.
 """
 from .database import (
     Database,
@@ -8,8 +8,7 @@ from .database import (
     init_db,
     close_db
 )
-from .models import User, Bot, Base
-from .repositories import UserRepository, BotRepository
+from .models import User, Bot, BotSettings, BotSchedule
 
 __all__ = [
     "Database",
@@ -19,7 +18,6 @@ __all__ = [
     "close_db",
     "User",
     "Bot",
-    "Base",
-    "UserRepository",
-    "BotRepository"
+    "BotSettings",
+    "BotSchedule",
 ]

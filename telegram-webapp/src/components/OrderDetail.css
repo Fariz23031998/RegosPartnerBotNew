@@ -1,0 +1,140 @@
+.order-detail {
+  padding: 16px;
+  min-height: 100vh;
+  background: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.order-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.order-detail-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.order-detail-info {
+  background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-weight: 500;
+  color: var(--tg-theme-hint-color, #999999);
+  min-width: 100px;
+}
+
+.info-value {
+  text-align: right;
+  flex: 1;
+}
+
+.info-value.status.performed {
+  color: #4caf50;
+}
+
+.info-value.status.pending {
+  color: #ff9800;
+}
+
+.order-operations {
+  margin-top: 20px;
+}
+
+.order-operations h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.operations-table {
+  background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.operations-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--tg-theme-button-color, #3390ec);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.operation-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.operation-row:last-child {
+  border-bottom: none;
+}
+
+.operation-item-name {
+  font-weight: 500;
+}
+
+.operation-item-code {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #999999);
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.no-operations {
+  padding: 24px;
+  text-align: center;
+  color: var(--tg-theme-hint-color, #999999);
+  font-style: italic;
+}
+
+.operation-quantity,
+.operation-price,
+.operation-amount {
+  text-align: right;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.total-label {
+  color: var(--tg-theme-hint-color, #999999);
+}
+
+.total-value {
+  color: var(--tg-theme-text-color, #000000);
+}

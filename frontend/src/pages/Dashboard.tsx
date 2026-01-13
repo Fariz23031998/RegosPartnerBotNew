@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
 import UserManagement from '../components/UserManagement'
 import BotManagement from '../components/BotManagement'
+import BotSettingsManagement from '../components/BotSettingsManagement'
+import BotScheduleManagement from '../components/BotScheduleManagement'
 import './Dashboard.css'
 
 interface DashboardStats {
@@ -14,7 +16,7 @@ interface DashboardStats {
 
 function Dashboard() {
   const { logout, username } = useAuth()
-  const [activeTab, setActiveTab] = useState<'users' | 'bots'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'bots' | 'bot-settings' | 'bot-schedules'>('users')
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalBots: 0,
@@ -95,11 +97,25 @@ function Dashboard() {
           >
             Bot Management
           </button>
+          <button
+            className={`tab-button ${activeTab === 'bot-settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bot-settings')}
+          >
+            Bot Settings
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'bot-schedules' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bot-schedules')}
+          >
+            Bot Schedules
+          </button>
         </div>
 
         <div className="tab-content">
           {activeTab === 'users' && <UserManagement onUpdate={fetchStats} />}
           {activeTab === 'bots' && <BotManagement onUpdate={fetchStats} />}
+          {activeTab === 'bot-settings' && <BotSettingsManagement onUpdate={fetchStats} />}
+          {activeTab === 'bot-schedules' && <BotScheduleManagement onUpdate={fetchStats} />}
         </div>
       </div>
     </div>

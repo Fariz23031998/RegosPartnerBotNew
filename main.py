@@ -11,9 +11,10 @@ import uvicorn
 from database import get_db, init_db, close_db
 from database.repositories import BotRepository
 from bot_manager import bot_manager
-from api.routers import auth, users, bots
+from api.routers import auth, users, bots, bot_settings, bot_schedules, telegram_webapp
 from auth import verify_admin
 from config import WEBHOOK_BASE_URL
+from regos.webhook_handler import handle_regos_webhook
 
 # Configure logging
 logging.basicConfig(
@@ -66,7 +67,12 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # Vite default port
+    allow_origins=[
+        "http://localhost:5173",  # Admin panel (Vite default port)
+        "http://localhost:3000",  # Alternative admin panel port
+        "http://localhost:5175",   # Telegram web app port
+        "https://941e514f5679.ngrok-free.app",   # Telegram web app port
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,6 +82,9 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(bots.router)
+app.include_router(bot_settings.router)
+app.include_router(bot_schedules.router)
+app.include_router(telegram_webapp.router)
 
 
 # Webhook endpoint - dynamic path for each bot (public, no auth needed)
@@ -138,6 +147,12 @@ async def get_registered_bots(current_user: dict = Depends(verify_admin)):
         }
         for bot_token, bot_data in bots_info.items()
     }
+
+
+@app.post("/regos/webhook")
+async def regos_webhook_handler(request: Request):
+    """Handle incoming webhooks from REGOS - delegates to webhook_handler module"""
+    return await handle_regos_webhook(request)
 
 
 @app.get("/health")

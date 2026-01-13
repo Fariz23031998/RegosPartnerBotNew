@@ -1,7 +1,7 @@
 """
 Pydantic schemas for API requests and responses.
 """
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
@@ -42,4 +42,56 @@ class BotResponse(BaseModel):
     bot_name: Optional[str]
     is_active: bool
     created_at: str
+
+
+class BotSettingsCreate(BaseModel):
+    bot_id: int
+    online_store_stock_id: Optional[int] = None
+    online_store_price_type_id: Optional[int] = None
+    online_store_currency_id: int = 1
+
+
+class BotSettingsUpdate(BaseModel):
+    online_store_stock_id: Optional[int] = None
+    online_store_price_type_id: Optional[int] = None
+    online_store_currency_id: Optional[int] = None
+
+
+class BotSettingsResponse(BaseModel):
+    id: int
+    bot_id: int
+    online_store_stock_id: Optional[int]
+    online_store_price_type_id: Optional[int]
+    online_store_currency_id: int
+    created_at: str
+    updated_at: str
+
+
+class BotScheduleCreate(BaseModel):
+    bot_id: int
+    schedule_type: str
+    time: str  # HH:MM format
+    schedule_option: str  # "daily", "weekdays", "monthly"
+    schedule_value: Optional[List[int]] = None  # Array of days/weekdays/monthly days
+    enabled: bool = True
+
+
+class BotScheduleUpdate(BaseModel):
+    schedule_type: Optional[str] = None
+    time: Optional[str] = None
+    schedule_option: Optional[str] = None
+    schedule_value: Optional[List[int]] = None
+    enabled: Optional[bool] = None
+
+
+class BotScheduleResponse(BaseModel):
+    id: int
+    bot_id: int
+    schedule_type: str
+    time: str
+    enabled: bool
+    schedule_option: str
+    schedule_value: Optional[List[int]]
+    created_at: str
+    updated_at: str
 

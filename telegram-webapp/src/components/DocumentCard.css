@@ -1,0 +1,67 @@
+.document-card {
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+  border-radius: 12px;
+  padding: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.document-card.clickable {
+  cursor: pointer;
+}
+
+.document-card.clickable:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.document-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.document-type {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.document-code {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #999999);
+}
+
+.document-date {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #999999);
+  margin-bottom: 8px;
+}
+
+.document-total {
+  margin-top: 8px;
+}
+
+.total-amount {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tg-theme-button-color, #0088cc);
+}
+
+.total-amount .currency {
+  font-weight: 500;
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.exchange-rate {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #999999);
+  margin-top: 4px;
+}
+
+.document-payment-direction {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color, #999999);
+  margin-top: 4px;
+}

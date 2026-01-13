@@ -41,7 +41,7 @@ async def search_partner_by_phone(
         # Partner/Get endpoint with search parameter
         # According to REGOS docs, search can match phones field
         request_data = {
-            "search": search_phone
+            "deleted_mark": False
         }
         
         logger.info(f"Searching for partner with phone: {search_phone}")
@@ -62,7 +62,8 @@ async def search_partner_by_phone(
                 for partner in partners:
                     if isinstance(partner, dict):
                         partner_phones = partner.get("phones", "")
-                        partner_phone_str = str(partner_phones) if partner_phones else ""
+                        partner_phone_str = partner_phones if partner_phones else "#############"
+                        logger.info(f"Phone: {partner_phones}")
                         
                         # Normalize partner's phone for comparison
                         partner_phone_normalized = partner_phone_str.replace(" ", "").replace("-", "").replace("(", "").replace(")", "").lstrip("+")
@@ -75,17 +76,64 @@ async def search_partner_by_phone(
                             logger.info(f"Found partner: {partner.get('id')} - {partner.get('name')}")
                             return partner
                 
-                # If no exact match found but we have results, return the first one
-                # (REGOS search might return related results by name or other fields)
-                if partners and len(partners) > 0:
-                    logger.info(f"Found {len(partners)} partner(s) from search, using first result")
-                    return partners[0] if isinstance(partners[0], dict) else None
         
         logger.info(f"No partner found with phone: {search_phone}")
         return None
         
     except Exception as e:
         logger.error(f"Error searching for partner by phone: {e}", exc_info=True)
+        return None
+
+
+async def get_partner_by_id(
+    regos_integration_token: str,
+    partner_id: int
+) -> Optional[Dict[str, Any]]:
+    """
+    Get partner by ID using Partner/Get endpoint.
+    
+    According to REGOS API documentation (https://docs.regos.uz/uz/api/references/partner/get):
+    - Uses Partner/Get endpoint with id parameter
+    
+    Args:
+        regos_integration_token: REGOS integration token
+        partner_id: Partner ID to fetch
+        
+    Returns:
+        dict: Partner data if found, None otherwise
+    """
+    if not regos_integration_token:
+        logger.warning("REGOS integration token not provided")
+        return None
+    
+    try:
+        request_data = {
+            "id": partner_id
+        }
+        
+        logger.info(f"Fetching partner {partner_id}")
+        response = await regos_async_api_request(
+            endpoint="Partner/Get",
+            request_data=request_data,
+            token=regos_integration_token,
+            timeout_seconds=30
+        )
+        
+        if response.get("ok"):
+            result = response.get("result")
+            if result:
+                # Handle both list and single object responses
+                if isinstance(result, list):
+                    if len(result) > 0:
+                        return result[0]
+                elif isinstance(result, dict):
+                    return result
+        
+        logger.warning(f"No partner found with ID: {partner_id}")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error fetching partner by ID: {e}", exc_info=True)
         return None
 
 

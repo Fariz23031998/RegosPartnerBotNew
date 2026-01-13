@@ -9,14 +9,41 @@ import base64
 import logging
 from typing import Any
 
-from core.conf import APP_NAME
+from config import APP_NAME
 
 logger = logging.getLogger(APP_NAME)
 
 
-def convert_to_unix_timestamp(date_str, date_format="%d.%m.%Y %H:%M:%S"):
+def convert_to_unix_timestamp(date_str, date_format=None):
+    """
+    Convert date string to unix timestamp.
+    Supports multiple formats:
+    - YYYY-MM-DD (ISO format)
+    - DD.MM.YYYY HH:MM:SS (default format)
+    - DD.MM.YYYY (date only)
+    """
     utc_plus_5 = timezone(timedelta(hours=5))
+    
+    if date_format is None:
+        # Auto-detect format
+        if len(date_str) == 10 and date_str.count('-') == 2:
+            # YYYY-MM-DD format
+            date_format = "%Y-%m-%d"
+        elif len(date_str) == 10 and date_str.count('.') == 2:
+            # DD.MM.YYYY format
+            date_format = "%d.%m.%Y"
+        else:
+            # Default: DD.MM.YYYY HH:MM:SS
+            date_format = "%d.%m.%Y %H:%M:%S"
+    
     dt = datetime.strptime(date_str, date_format)
+    # For date-only formats, set time to start/end of day
+    if date_format in ["%Y-%m-%d", "%d.%m.%Y"]:
+        # If it's a start date, use 00:00:00, if end date, use 23:59:59
+        # We'll use 00:00:00 for start dates and 23:59:59 for end dates
+        # This will be handled by the caller or we can add a parameter
+        pass
+    
     dt = dt.replace(tzinfo=utc_plus_5)
     unix_timestamp = int(dt.timestamp())
     return unix_timestamp

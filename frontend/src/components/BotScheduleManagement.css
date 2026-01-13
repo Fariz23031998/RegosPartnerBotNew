@@ -1,0 +1,35 @@
+.bot-schedule-management {
+  padding: 20px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.checkbox-group .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-group .checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.checkbox-group .checkbox-label span {
+  user-select: none;
+}
+
+.schedule-modal .modal-content {
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}

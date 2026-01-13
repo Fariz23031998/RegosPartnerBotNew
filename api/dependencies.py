@@ -26,3 +26,4 @@ async def get_bot_repository(
         yield BotRepository(session)
         break
 
+
