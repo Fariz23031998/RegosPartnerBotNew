@@ -15,6 +15,7 @@ from api.routers import auth, users, bots, bot_settings, bot_schedules, telegram
 from auth import verify_admin
 from config import WEBHOOK_BASE_URL
 from regos.webhook_handler import handle_regos_webhook
+from scheduler import schedule_executor
 
 # Configure logging
 logging.basicConfig(
@@ -49,10 +50,15 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Failed to load bot {bot.telegram_token[:10]}...: {e}", exc_info=True)
     
+    # Start scheduler for bot schedules
+    await schedule_executor.start()
+    logger.info("Scheduler started for bot schedules")
+    
     yield
     
     # Shutdown
     logger.info("Shutting down application...")
+    await schedule_executor.stop()
     await close_db()
 
 

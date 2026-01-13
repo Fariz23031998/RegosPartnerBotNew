@@ -7,4 +7,5 @@ pydantic
 python-jose[cryptography]
 python-multipart
 openpyxl
+apscheduler
 

@@ -9,6 +9,7 @@ from database import get_db
 from database.repositories import BotRepository, BotScheduleRepository
 from api.schemas import BotScheduleCreate, BotScheduleUpdate, BotScheduleResponse
 from auth import verify_admin
+from scheduler import schedule_executor
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/bot-schedules", tags=["bot-schedules"])
@@ -69,6 +70,9 @@ async def create_bot_schedule(
                 schedule_value=schedule.schedule_value,
                 enabled=schedule.enabled
             )
+            
+            # Reload schedules in scheduler
+            await schedule_executor.reload_schedules()
             
             return BotScheduleResponse(
                 id=bot_schedule.id,
@@ -252,6 +256,9 @@ async def update_bot_schedule(
             if not updated:
                 raise HTTPException(status_code=404, detail="Bot schedule not found after update")
             
+            # Reload schedules in scheduler
+            await schedule_executor.reload_schedules()
+            
             return BotScheduleResponse(
                 id=updated.id,
                 bot_id=updated.bot_id,
@@ -290,6 +297,9 @@ async def delete_bot_schedule(
             
             if not deleted:
                 raise HTTPException(status_code=404, detail="Bot schedule not found")
+            
+            # Reload schedules in scheduler
+            await schedule_executor.reload_schedules()
             
             return {"ok": True, "message": "Bot schedule deleted successfully"}
     except HTTPException:
