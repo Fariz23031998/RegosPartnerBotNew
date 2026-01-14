@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useCart } from '../contexts/CartContext'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
+import { apiFetch } from '../utils/api'
 import './Checkout.css'
 
 interface CheckoutProps {
@@ -36,7 +37,7 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
     setError(null)
 
     try {
-      const response = await fetch('/api/telegram-webapp/orders/create', {
+      const response = await apiFetch('/telegram-webapp/orders/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

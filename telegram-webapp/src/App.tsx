@@ -5,6 +5,7 @@ import Shop from './components/Shop'
 import Loading from './components/Loading'
 import ErrorMessage from './components/ErrorMessage'
 import { CartProvider } from './contexts/CartContext'
+import { apiFetch } from './utils/api'
 import './App.css'
 
 // Declare Telegram WebApp types
@@ -85,7 +86,7 @@ function AppContent() {
 
   const authenticateUser = async (userId: number) => {
     try {
-      const response = await fetch(`/api/telegram-webapp/auth?telegram_user_id=${userId}`)
+      const response = await apiFetch(`/telegram-webapp/auth?telegram_user_id=${userId}`)
       const data = await response.json()
 
       if (data.ok) {

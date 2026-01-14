@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DocumentCard from './DocumentCard'
 import DocumentDetail from './DocumentDetail'
 import PartnerBalance from './PartnerBalance'
+import { apiFetch } from '../utils/api'
 import './DocumentList.css'
 
 interface Document {
@@ -96,24 +97,24 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
         let endpoint = ''
         switch (type) {
           case 'purchase':
-            endpoint = '/api/telegram-webapp/documents/purchase'
+            endpoint = '/telegram-webapp/documents/purchase'
             break
           case 'purchase-return':
-            endpoint = '/api/telegram-webapp/documents/purchase-return'
+            endpoint = '/telegram-webapp/documents/purchase-return'
             break
           case 'wholesale':
-            endpoint = '/api/telegram-webapp/documents/wholesale'
+            endpoint = '/telegram-webapp/documents/wholesale'
             break
           case 'wholesale-return':
-            endpoint = '/api/telegram-webapp/documents/wholesale-return'
+            endpoint = '/telegram-webapp/documents/wholesale-return'
             break
           case 'payment':
-            endpoint = '/api/telegram-webapp/documents/payment'
+            endpoint = '/telegram-webapp/documents/payment'
             break
         }
 
         const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}`
-        const response = await fetch(url)
+        const response = await apiFetch(url)
         const data = await response.json()
 
         if (data.ok) {
@@ -170,24 +171,24 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
       let endpoint = ''
       switch (activeTab) {
         case 'purchase':
-          endpoint = '/api/telegram-webapp/documents/purchase'
+          endpoint = '/telegram-webapp/documents/purchase'
           break
         case 'purchase-return':
-          endpoint = '/api/telegram-webapp/documents/purchase-return'
+          endpoint = '/telegram-webapp/documents/purchase-return'
           break
         case 'wholesale':
-          endpoint = '/api/telegram-webapp/documents/wholesale'
+          endpoint = '/telegram-webapp/documents/wholesale'
           break
         case 'wholesale-return':
-          endpoint = '/api/telegram-webapp/documents/wholesale-return'
+          endpoint = '/telegram-webapp/documents/wholesale-return'
           break
         case 'payment':
-          endpoint = '/api/telegram-webapp/documents/payment'
+          endpoint = '/telegram-webapp/documents/payment'
           break
       }
 
       const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}`
-      const response = await fetch(url)
+      const response = await apiFetch(url)
       const data = await response.json()
 
       if (data.ok) {

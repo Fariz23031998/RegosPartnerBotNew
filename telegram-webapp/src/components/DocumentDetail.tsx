@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import { getPartnerDocumentTypeName } from '../utils/partnerTerminology'
+import { apiFetch } from '../utils/api'
 import './DocumentDetail.css'
 
 interface DocumentDetailProps {
@@ -49,21 +50,21 @@ function DocumentDetail({
       let endpoint = ''
       switch (documentType) {
         case 'purchase':
-          endpoint = `/api/telegram-webapp/documents/purchase/${documentId}`
+          endpoint = `/telegram-webapp/documents/purchase/${documentId}`
           break
         case 'purchase-return':
-          endpoint = `/api/telegram-webapp/documents/purchase-return/${documentId}`
+          endpoint = `/telegram-webapp/documents/purchase-return/${documentId}`
           break
         case 'wholesale':
-          endpoint = `/api/telegram-webapp/documents/wholesale/${documentId}`
+          endpoint = `/telegram-webapp/documents/wholesale/${documentId}`
           break
         case 'wholesale-return':
-          endpoint = `/api/telegram-webapp/documents/wholesale-return/${documentId}`
+          endpoint = `/telegram-webapp/documents/wholesale-return/${documentId}`
           break
       }
 
       const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}`
-      const response = await fetch(url)
+      const response = await apiFetch(url)
       const data = await response.json()
 
       if (data.ok) {
@@ -133,21 +134,21 @@ function DocumentDetail({
       let endpoint = ''
       switch (documentType) {
         case 'purchase':
-          endpoint = `/api/telegram-webapp/documents/purchase/${documentId}/export`
+          endpoint = `/telegram-webapp/documents/purchase/${documentId}/export`
           break
         case 'purchase-return':
-          endpoint = `/api/telegram-webapp/documents/purchase-return/${documentId}/export`
+          endpoint = `/telegram-webapp/documents/purchase-return/${documentId}/export`
           break
         case 'wholesale':
-          endpoint = `/api/telegram-webapp/documents/wholesale/${documentId}/export`
+          endpoint = `/telegram-webapp/documents/wholesale/${documentId}/export`
           break
         case 'wholesale-return':
-          endpoint = `/api/telegram-webapp/documents/wholesale-return/${documentId}/export`
+          endpoint = `/telegram-webapp/documents/wholesale-return/${documentId}/export`
           break
       }
 
       const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}`
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method: 'POST'
       })
       const data = await response.json()

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import { getInvertedDebitCreditLabels, getPartnerDocumentTypeName } from '../utils/partnerTerminology'
+import { apiFetch } from '../utils/api'
 import './PartnerBalance.css'
 
 interface PartnerBalanceProps {
@@ -75,8 +76,8 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
 
     try {
       const [firmsResponse, currenciesResponse] = await Promise.all([
-        fetch(`/api/telegram-webapp/firms?telegram_user_id=${telegramUserId}`),
-        fetch(`/api/telegram-webapp/currencies?telegram_user_id=${telegramUserId}`)
+        apiFetch(`/telegram-webapp/firms?telegram_user_id=${telegramUserId}`),
+        apiFetch(`/telegram-webapp/currencies?telegram_user_id=${telegramUserId}`)
       ])
 
       const firmsData = await firmsResponse.json()
@@ -103,8 +104,8 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
       const firmIds = selectedFirms.join(',')
       const currencyIds = selectedCurrencies.join(',')
 
-      const url = `/api/telegram-webapp/partner-balance?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}&firm_ids=${firmIds}&currency_ids=${currencyIds}`
-      const response = await fetch(url)
+      const url = `/telegram-webapp/partner-balance?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}&firm_ids=${firmIds}&currency_ids=${currencyIds}`
+      const response = await apiFetch(url)
       const data = await response.json()
 
       if (data.ok) {
@@ -162,8 +163,8 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
       const firmIds = selectedFirms.join(',')
       const currencyIds = selectedCurrencies.join(',')
 
-      const url = `/api/telegram-webapp/partner-balance/export?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}&firm_ids=${firmIds}&currency_ids=${currencyIds}`
-      const response = await fetch(url, {
+      const url = `/telegram-webapp/partner-balance/export?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}&firm_ids=${firmIds}&currency_ids=${currencyIds}`
+      const response = await apiFetch(url, {
         method: 'POST'
       })
       const data = await response.json()

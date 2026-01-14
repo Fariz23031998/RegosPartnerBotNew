@@ -67,18 +67,23 @@ app = FastAPI(
     title="Telegram Bot Webhook Engine",
     description="Multi-bot webhook engine using FastAPI",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    root_path="/regos-partner-bot/api"
 )
 
 # Add CORS middleware
+# Get CORS origins from environment or use defaults
+cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
+    "http://localhost:5173",  # Admin panel (Vite default port)
+    "http://localhost:3000",  # Alternative admin panel port
+    "http://localhost:5175",   # Telegram web app port
+]
+# Filter out empty strings
+cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Admin panel (Vite default port)
-        "http://localhost:3000",  # Alternative admin panel port
-        "http://localhost:5175",   # Telegram web app port
-        "https://941e514f5679.ngrok-free.app",   # Telegram web app port
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

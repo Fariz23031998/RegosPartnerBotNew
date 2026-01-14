@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
+import { apiFetch } from '../utils/api'
 import './OrderDetail.css'
 
 interface OrderDetailProps {
@@ -25,11 +26,11 @@ function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetail
       setIsLoading(true)
       setError(null)
 
-      const url = new URL(`/api/telegram-webapp/orders/${orderId}`, window.location.origin)
+      const url = new URL(`/telegram-webapp/orders/${orderId}`, window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
 
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {

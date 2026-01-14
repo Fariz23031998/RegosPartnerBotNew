@@ -1,0 +1,40 @@
+# Multi-stage build for frontend applications
+# Stage 1: Build admin panel
+FROM node:20-alpine AS admin-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Build telegram webapp
+FROM node:20-alpine AS webapp-builder
+WORKDIR /app/telegram-webapp
+COPY telegram-webapp/package*.json ./
+RUN npm ci
+COPY telegram-webapp/ .
+RUN npm run build
+
+# Stage 3: Nginx to serve static files
+FROM nginx:alpine
+WORKDIR /usr/share/nginx/html
+
+# Install wget for health checks
+RUN apk add --no-cache wget
+
+# Copy built frontend applications
+COPY --from=admin-builder /app/frontend/dist ./admin
+COPY --from=webapp-builder /app/telegram-webapp/dist ./webapp
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health 2>/dev/null || exit 1
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

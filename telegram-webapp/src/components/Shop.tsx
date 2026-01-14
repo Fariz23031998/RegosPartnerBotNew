@@ -5,6 +5,7 @@ import Cart from './Cart'
 import Checkout from './Checkout'
 import OrderDetail from './OrderDetail'
 import { useCart } from '../contexts/CartContext'
+import { apiFetch } from '../utils/api'
 import './Shop.css'
 
 interface Product {
@@ -112,7 +113,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch(`/api/telegram-webapp/product-groups?telegram_user_id=${telegramUserId}`)
+      const response = await apiFetch(`/telegram-webapp/product-groups?telegram_user_id=${telegramUserId}`)
       const data = await response.json()
       if (data.ok) {
         setGroups(data.groups || [])
@@ -134,7 +135,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
       const currentOffset = reset ? 0 : offset
       const groupIds = selectedGroups.length > 0 ? selectedGroups.join(',') : undefined
 
-      const url = new URL('/api/telegram-webapp/products', window.location.origin)
+      const url = new URL('/telegram-webapp/products', window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('limit', '20')
       url.searchParams.set('offset', currentOffset.toString())
@@ -145,7 +146,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
         url.searchParams.set('search', debouncedSearchQuery)
       }
 
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {
@@ -274,11 +275,11 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
       setIsLoadingOrders(true)
       setOrdersError(null)
 
-      const url = new URL('/api/telegram-webapp/orders', window.location.origin)
+      const url = new URL('/telegram-webapp/orders', window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
 
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {

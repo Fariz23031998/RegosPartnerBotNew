@@ -33,7 +33,7 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/regos-partner-bot/admin">
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: regos-partner-bot-backend
+    restart: unless-stopped
+    environment:
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-https://your-domain.com}
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/telegram_bots.db}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - APP_NAME=${APP_NAME:-RegosPartnerBot}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+    networks:
+      - regos-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: regos-partner-bot-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - regos-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  regos-network:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local
+  exports:
+    driver: local
