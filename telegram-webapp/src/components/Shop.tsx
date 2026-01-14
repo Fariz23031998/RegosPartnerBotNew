@@ -57,7 +57,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { addToCart, updateQuantity, getItemQuantity, getCartItemCount } = useCart()
   
   // Quick filter state
@@ -196,14 +196,6 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
       }
     }
   }, [handleLoadMore, hasMore, isLoadingMore])
-
-  const toggleGroup = (groupId: number) => {
-    setSelectedGroups(prev =>
-      prev.includes(groupId)
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
-    )
-  }
 
   const selectGroup = (groupId: number) => {
     setSelectedGroups([groupId])

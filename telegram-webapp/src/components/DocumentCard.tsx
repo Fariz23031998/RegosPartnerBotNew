@@ -4,16 +4,8 @@ interface DocumentCardProps {
   document: any
   type: string
   formatDate: (date: number | string) => string
-}
-
-interface DocumentCardProps {
-  document: any
-  type: string
-  formatDate: (date: number | string) => string
   onClick?: () => void
 }
-
-import { getPartnerDocumentTypeName } from '../utils/partnerTerminology'
 
 function DocumentCard({ document, type, formatDate, onClick }: DocumentCardProps) {
   const getDocumentTypeLabel = () => {

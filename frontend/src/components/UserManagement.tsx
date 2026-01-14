@@ -54,6 +54,29 @@ function UserManagement({ onUpdate }: UserManagementProps) {
     }
   }
 
+  const handleEdit = (user: User) => {
+    setEditingUser(user)
+    setFormData({ username: user.username || '', email: user.email || '' })
+    setShowModal(true)
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingUser) return
+    
+    try {
+      setError('')
+      await api.patch(`/users/${editingUser.user_id}`, formData)
+      setShowModal(false)
+      setEditingUser(null)
+      setFormData({ username: '', email: '' })
+      fetchUsers()
+      onUpdate?.()
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update user')
+    }
+  }
+
   const handleDelete = async (userId: number) => {
     if (!window.confirm('Are you sure you want to delete this user? All associated tokens will also be deleted.')) {
       return

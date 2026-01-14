@@ -24,6 +24,7 @@ declare global {
             username?: string
           }
         }
+        showAlert: (message: string) => void
       }
     }
   }

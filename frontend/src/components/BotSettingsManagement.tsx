@@ -73,7 +73,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         online_store_currency_id: formData.online_store_currency_id ? parseInt(formData.online_store_currency_id) : 1,
       })
       setShowModal(false)
-      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '' })
+      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
       fetchData()
       onUpdate?.()
     } catch (err: any) {
@@ -221,7 +221,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         <div className="modal-overlay" onClick={() => {
           setShowModal(false)
           setEditingSettings(null)
-          setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '' })
+          setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingSettings ? 'Edit Bot Settings' : 'Create New Bot Settings'}</h3>

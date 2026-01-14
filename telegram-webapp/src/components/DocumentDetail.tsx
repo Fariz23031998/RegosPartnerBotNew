@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
-import { getPartnerDocumentTypeName } from '../utils/partnerTerminology'
 import { apiFetch } from '../utils/api'
 import './DocumentDetail.css'
 
@@ -116,7 +115,6 @@ function DocumentDetail({
   }
 
   const useCost = documentType === 'purchase' || documentType === 'purchase-return'
-  const isReturn = documentType === 'purchase-return' || documentType === 'wholesale-return'
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 

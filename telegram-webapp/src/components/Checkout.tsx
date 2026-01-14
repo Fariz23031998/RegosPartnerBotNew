@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useCart } from '../contexts/CartContext'
-import Loading from './Loading'
-import ErrorMessage from './ErrorMessage'
 import { apiFetch } from '../utils/api'
 import './Checkout.css'
 
