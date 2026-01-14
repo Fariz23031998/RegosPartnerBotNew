@@ -21,6 +21,14 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      // Debug logging (remove in production)
+      console.log('[API Request]', config.method?.toUpperCase(), config.url, {
+        hasToken: !!token,
+        tokenPreview: token.substring(0, 20) + '...',
+        headers: config.headers
+      })
+    } else {
+      console.warn('[API Request] No token found in localStorage', config.url)
     }
     return config
   },
@@ -34,9 +42,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      delete api.defaults.headers.common['Authorization']
-      window.location.href = '/regos-partner-bot/admin/login'
+      console.error('[API 401 Error]', {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers,
+        response: error.response?.data,
+        requestHeaders: error.request?.headers
+      })
+      
+      // Only redirect if we're not already on the login page
+      if (!window.location.pathname.includes('/login')) {
+        localStorage.removeItem('token')
+        delete api.defaults.headers.common['Authorization']
+        // Add a small delay to allow console inspection
+        setTimeout(() => {
+          window.location.href = '/regos-partner-bot/admin/login'
+        }, 2000)
+      }
     }
     return Promise.reject(error)
   }

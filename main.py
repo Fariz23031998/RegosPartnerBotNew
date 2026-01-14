@@ -73,13 +73,18 @@ app = FastAPI(
 
 # Add CORS middleware
 # Get CORS origins from environment or use defaults
-cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
-    "http://localhost:5173",  # Admin panel (Vite default port)
-    "http://localhost:3000",  # Alternative admin panel port
-    "http://localhost:5175",   # Telegram web app port
-]
-# Filter out empty strings
-cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    cors_origins = [
+        "http://localhost:5173",  # Admin panel (Vite default port)
+        "http://localhost:3000",  # Alternative admin panel port
+        "http://localhost:5175",   # Telegram web app port
+    ]
+
+# Log CORS configuration for debugging
+logger.info(f"CORS origins configured: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,6 +92,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include routers

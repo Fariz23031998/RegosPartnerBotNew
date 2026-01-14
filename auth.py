@@ -4,14 +4,41 @@ Authentication and authorization for admin panel.
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+from pathlib import Path
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
-# Admin credentials (hardcoded for now)
+# Admin credentials
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "masterkey"
+# Password is stored in a file for security and to allow changes
+PASSWORD_FILE = Path("admin_password.txt")
+
+def get_admin_password() -> str:
+    """Get admin password from file or use default"""
+    if PASSWORD_FILE.exists():
+        try:
+            return PASSWORD_FILE.read_text().strip()
+        except Exception:
+            pass
+    # Default password on first run
+    default_password = "masterkey"
+    # Store it for future use
+    try:
+        PASSWORD_FILE.write_text(default_password)
+    except Exception:
+        pass
+    return default_password
+
+def set_admin_password(new_password: str) -> bool:
+    """Update admin password"""
+    try:
+        PASSWORD_FILE.write_text(new_password.strip())
+        return True
+    except Exception as e:
+        print(f"Error saving password: {e}")
+        return False
 
 # JWT settings
 SECRET_KEY = secrets.token_urlsafe(32)  # Generate a random secret key

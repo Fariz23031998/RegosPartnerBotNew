@@ -70,6 +70,10 @@ location /regos-partner-bot/admin {
 location /regos-partner-bot/api {
     proxy_pass http://localhost:8000;  # Or your FastAPI backend URL
     proxy_http_version 1.1;
+    
+    # CRITICAL: Forward Authorization header for JWT authentication
+    proxy_set_header Authorization $http_authorization;
+    
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection 'upgrade';
     proxy_set_header Host $host;

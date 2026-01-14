@@ -5,6 +5,7 @@ import UserManagement from '../components/UserManagement'
 import BotManagement from '../components/BotManagement'
 import BotSettingsManagement from '../components/BotSettingsManagement'
 import BotScheduleManagement from '../components/BotScheduleManagement'
+import ChangePassword from '../components/ChangePassword'
 import './Dashboard.css'
 
 interface DashboardStats {
@@ -16,7 +17,8 @@ interface DashboardStats {
 
 function Dashboard() {
   const { logout, username } = useAuth()
-  const [activeTab, setActiveTab] = useState<'users' | 'bots' | 'bot-settings' | 'bot-schedules'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'bots' | 'bot-settings' | 'bot-schedules' | 'change-password'>('users')
+  const [showChangePassword, setShowChangePassword] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalBots: 0,
@@ -57,6 +59,12 @@ function Dashboard() {
           <h1>Telegram Bot Admin Panel</h1>
           <div className="header-actions">
             <span className="username">Welcome, {username}</span>
+            <button 
+              onClick={() => setShowChangePassword(true)} 
+              className="change-password-button"
+            >
+              Change Password
+            </button>
             <button onClick={logout} className="logout-button">
               Logout
             </button>
@@ -118,6 +126,22 @@ function Dashboard() {
           {activeTab === 'bot-schedules' && <BotScheduleManagement onUpdate={fetchStats} />}
         </div>
       </div>
+
+      {showChangePassword && (
+        <div className="modal-overlay" onClick={() => setShowChangePassword(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <ChangePassword 
+              onSuccess={() => setShowChangePassword(false)}
+            />
+            <button 
+              className="modal-close-button"
+              onClick={() => setShowChangePassword(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

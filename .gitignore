@@ -42,6 +42,9 @@ env/
 .env
 .env.local
 
+# Admin password file
+admin_password.txt
+
 # Logs
 *.log
 
