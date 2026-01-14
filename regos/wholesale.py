@@ -4,6 +4,7 @@ REGOS WholeSale document operations.
 import logging
 from typing import Optional, Dict, Any, List
 from regos.api import regos_async_api_request
+from core.partner_terminology import get_partner_document_type_name
 from config import APP_NAME
 
 logger = logging.getLogger(APP_NAME)
@@ -175,13 +176,24 @@ def format_wholesale_receipt(
             "",
         ])
     
-    # Determine receipt type text
+    # Determine receipt type text (system perspective, will be inverted by mapping function)
     if is_return:
-        receipt_type = "Чек возврата"
+        # For returns, determine if it's purchase return or wholesale return
+        if use_cost:
+            # System purchase return
+            receipt_type = "Чек возврата закупки"
+        else:
+            # System wholesale return
+            receipt_type = "Чек возврата отгрузки"
     elif use_cost:
+        # System purchase
         receipt_type = "Чек закупки"
     else:
+        # System wholesale
         receipt_type = "Чек отгрузки"
+    
+    # Apply partner terminology mapping to invert for partner view
+    receipt_type = get_partner_document_type_name(receipt_type, "ru")
     
     message_parts.extend([
         f"🧾 *{receipt_type}*",

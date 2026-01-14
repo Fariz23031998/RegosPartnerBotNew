@@ -6,6 +6,14 @@ import logging
 from typing import Dict, Optional
 import httpx
 from datetime import datetime
+from core.message_utils import split_message
+from core.telegram_webhook import (
+    get_bot_info,
+    set_webhook,
+    check_webhook_info,
+    verify_webhook_accessible,
+    delete_webhook
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +35,15 @@ class BotManager:
             logger.warning(f"Bot with token {token[:10]}... already registered, re-setting webhook...")
             # Re-setup webhook in case it wasn't configured before
             if self.webhook_url_base:
-                await self._set_webhook(token, bot_name or self.bots[token].get("bot_name"))
+                webhook_path = f"/webhook/{token[:10]}"
+                webhook_url = f"{self.webhook_url_base}{webhook_path}"
+                if await set_webhook(token, webhook_url, bot_name or self.bots[token].get("bot_name")):
+                    await check_webhook_info(token)
             return self.bots[token]
         
         # Get bot info from Telegram
         logger.info(f"Registering bot with token prefix: {token[:10]}...")
-        bot_info = await self._get_bot_info(token)
+        bot_info = await get_bot_info(token)
         if not bot_info:
             raise ValueError(f"Invalid bot token: {token[:10]}... Could not get bot info from Telegram API")
         
@@ -49,7 +60,10 @@ class BotManager:
         
         # Set up webhook if base URL is configured
         if self.webhook_url_base:
-            await self._set_webhook(token, bot_data["bot_name"])
+            webhook_path = f"/webhook/{token[:10]}"
+            webhook_url = f"{self.webhook_url_base}{webhook_path}"
+            if await set_webhook(token, webhook_url, bot_data["bot_name"]):
+                await check_webhook_info(token)
         else:
             logger.warning(f"Webhook base URL not set, bot {bot_data['bot_name']} registered but webhook not configured")
         
@@ -61,138 +75,11 @@ class BotManager:
             return False
         
         # Delete webhook
-        await self._delete_webhook(token)
+        await delete_webhook(token)
         
         del self.bots[token]
         logger.info(f"Unregistered bot: {token[:10]}...")
         return True
-    
-    async def _get_bot_info(self, token: str) -> Optional[dict]:
-        """Get bot information from Telegram API"""
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    f"https://api.telegram.org/bot{token}/getMe",
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("ok"):
-                        return data.get("result")
-                return None
-            except Exception as e:
-                logger.error(f"Error getting bot info: {e}")
-                return None
-    
-    async def _set_webhook(self, token: str, bot_name: Optional[str] = None):
-        """Set webhook for a bot"""
-        if not self.webhook_url_base:
-            logger.warning("Webhook base URL not set, skipping webhook setup")
-            return
-        
-        # Create a unique webhook path for this bot
-        # Using first 10 chars of token as identifier
-        webhook_path = f"/webhook/{token[:10]}"
-        webhook_url = f"{self.webhook_url_base}{webhook_path}"
-        
-        async with httpx.AsyncClient() as client:
-            try:
-                # Set webhook with allowed_updates to ensure we receive all message types
-                response = await client.post(
-                    f"https://api.telegram.org/bot{token}/setWebhook",
-                    json={
-                        "url": webhook_url,
-                        "allowed_updates": ["message", "callback_query"],
-                        "drop_pending_updates": False
-                    },
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("ok"):
-                        logger.info(f"Webhook set for {bot_name or token[:10]}: {webhook_url}")
-                        # Verify webhook info after setting
-                        await self._check_webhook_info(token)
-                    else:
-                        logger.error(f"Failed to set webhook: {data.get('description')}")
-                else:
-                    logger.error(f"HTTP error setting webhook: {response.status_code}")
-            except Exception as e:
-                logger.error(f"Error setting webhook: {e}")
-    
-    async def _check_webhook_info(self, token: str):
-        """Check webhook info from Telegram and validate accessibility"""
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    f"https://api.telegram.org/bot{token}/getWebhookInfo",
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("ok"):
-                        webhook_info = data.get("result", {})
-                        webhook_url = webhook_info.get("url", "")
-                        pending_count = webhook_info.get("pending_update_count", 0)
-                        last_error = webhook_info.get("last_error_message")
-                        last_error_date = webhook_info.get("last_error_date")
-                        
-                        logger.info(f"Webhook info: URL={webhook_url}, Pending updates={pending_count}")
-                        
-                        # Check for webhook errors
-                        if last_error:
-                            logger.error(f"⚠️ WEBHOOK ERROR: {last_error} (Date: {last_error_date})")
-                            logger.error("This means Telegram cannot reach your webhook URL!")
-                            logger.error("Possible causes:")
-                            logger.error("  1. Tunnel service (localtunnel/ngrok) is not running or not accessible")
-                            logger.error("  2. Firewall blocking connections to tunnel service")
-                            logger.error("  3. Webhook URL is not publicly accessible")
-                            logger.error(f"  4. SSL certificate issues with {webhook_url}")
-                        elif webhook_url and pending_count > 0:
-                            logger.warning(f"⚠️ {pending_count} pending updates - webhook may not be processing correctly")
-                        
-                        # Verify webhook URL is accessible (if it's set)
-                        if webhook_url:
-                            await self._verify_webhook_accessible(webhook_url)
-            except Exception as e:
-                logger.error(f"Error checking webhook info: {e}")
-    
-    async def _verify_webhook_accessible(self, webhook_url: str):
-        """Verify that the webhook URL is accessible from the internet"""
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            try:
-                # Extract base URL and try to reach the health endpoint to verify the tunnel is working
-                # webhook_url format: https://domain.com/webhook/token_prefix
-                # We want: https://domain.com/health
-                from urllib.parse import urlparse, urlunparse
-                parsed = urlparse(webhook_url)
-                # Build health URL from the base domain
-                health_url = f"{parsed.scheme}://{parsed.netloc}/health"
-                
-                response = await client.get(health_url, timeout=5.0)
-                if response.status_code == 200:
-                    logger.info(f"✅ Webhook URL is accessible: {webhook_url}")
-                else:
-                    logger.warning(f"⚠️ Webhook URL health check returned status {response.status_code} (this may not affect webhook functionality)")
-            except httpx.ConnectError:
-                logger.error(f"❌ CRITICAL: Cannot connect to {webhook_url}")
-                logger.error("   Your tunnel service (localtunnel/ngrok) is not working!")
-                logger.error("   Telegram cannot send updates to your bot.")
-            except Exception as e:
-                logger.warning(f"Could not verify webhook accessibility: {e} (this may not affect webhook functionality)")
-    
-    async def _delete_webhook(self, token: str):
-        """Delete webhook for a bot"""
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    f"https://api.telegram.org/bot{token}/deleteWebhook",
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    logger.info(f"Webhook deleted for {token[:10]}...")
-            except Exception as e:
-                logger.error(f"Error deleting webhook: {e}")
     
     async def process_update(
         self, 
@@ -281,31 +168,62 @@ class BotManager:
         parse_mode: Optional[str] = None,
         reply_markup: Optional[dict] = None
     ) -> Optional[dict]:
-        """Send a message via Telegram API"""
+        """
+        Send a message via Telegram API.
+        If message exceeds 4096 characters, splits it into chunks and sends them sequentially.
+        
+        Args:
+            token: Telegram bot token
+            chat_id: Telegram chat ID
+            text: Message text (will be split if > 4096 chars)
+            parse_mode: Optional parse mode (Markdown, HTML, etc.)
+            reply_markup: Optional reply markup (keyboard, etc.)
+        
+        Returns:
+            Result of the last message sent, or None if all failed
+        """
+        # Split message if it exceeds Telegram's limit
+        chunks = split_message(text, max_length=4096)
+        
+        if len(chunks) > 1:
+            logger.info(f"Message exceeds 4096 characters, splitting into {len(chunks)} chunks")
+        
+        last_result = None
+        
         async with httpx.AsyncClient() as client:
-            try:
-                payload = {
-                    "chat_id": chat_id,
-                    "text": text
-                }
-                if parse_mode:
-                    payload["parse_mode"] = parse_mode
-                if reply_markup:
-                    payload["reply_markup"] = reply_markup
-                
-                response = await client.post(
-                    f"https://api.telegram.org/bot{token}/sendMessage",
-                    json=payload,
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("ok"):
-                        return data.get("result")
-                return None
-            except Exception as e:
-                logger.error(f"Error sending message: {e}")
-                return None
+            for idx, chunk in enumerate(chunks):
+                try:
+                    payload = {
+                        "chat_id": chat_id,
+                        "text": chunk
+                    }
+                    if parse_mode:
+                        payload["parse_mode"] = parse_mode
+                    # Only include reply_markup in the first chunk
+                    if reply_markup and idx == 0:
+                        payload["reply_markup"] = reply_markup
+                    
+                    response = await client.post(
+                        f"https://api.telegram.org/bot{token}/sendMessage",
+                        json=payload,
+                        timeout=10.0
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get("ok"):
+                            last_result = data.get("result")
+                            # Small delay between chunks to avoid rate limiting
+                            if idx < len(chunks) - 1:
+                                await asyncio.sleep(0.1)
+                        else:
+                            logger.warning(f"Failed to send message chunk {idx + 1}/{len(chunks)}: {data.get('description', 'Unknown error')}")
+                    else:
+                        logger.warning(f"HTTP error sending message chunk {idx + 1}/{len(chunks)}: {response.status_code}")
+                except Exception as e:
+                    logger.error(f"Error sending message chunk {idx + 1}/{len(chunks)}: {e}")
+                    # Continue sending remaining chunks even if one fails
+        
+        return last_result
     
     async def send_document(
         self,
@@ -359,7 +277,34 @@ class BotManager:
         chat_id: int, 
         regos_integration_token: Optional[str]
     ) -> Optional[dict]:
-        """Handle /start command - request contact from user"""
+        """Handle /start command - check if user is already registered, otherwise request contact"""
+        # Check if user is already registered (Telegram chat ID matches partner's oked field)
+        if regos_integration_token:
+            try:
+                from regos.partner import search_partner_by_telegram_id
+                
+                partner = await search_partner_by_telegram_id(
+                    regos_integration_token,
+                    str(chat_id)
+                )
+                
+                if partner:
+                    # User is already registered
+                    partner_name = partner.get("name", "Партнер")
+                    partner_id = partner.get("id")
+                    return await self.send_message(
+                        token,
+                        chat_id,
+                        f"✅ Вы уже зарегистрированы, {partner_name}!\n\n"
+                        f"Ваш Telegram аккаунт уже привязан к вашему профилю в системе.\n"
+                        f"ID партнера: {partner_id}\n\n"
+                        f"Вы будете получать уведомления через этого бота."
+                    )
+            except Exception as e:
+                logger.error(f"Error checking if user is registered: {e}", exc_info=True)
+                # Continue with normal flow if check fails
+        
+        # User is not registered, request contact
         welcome_text = (
             "Добро пожаловать! 👋\n\n"
             "Для продолжения работы, пожалуйста, поделитесь своим контактом, "

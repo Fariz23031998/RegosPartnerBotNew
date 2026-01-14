@@ -9,6 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from config import APP_NAME
+from core.partner_terminology import get_inverted_debit_credit_labels, get_partner_document_type_name
 
 logger = logging.getLogger(APP_NAME)
 
@@ -38,12 +39,12 @@ def generate_document_excel(
     wb = Workbook()
     ws = wb.active
     
-    # Determine document type label
+    # Determine document type label (inverted for partner view)
     type_labels = {
-        "purchase": "Закупка",
-        "purchase-return": "Возврат закупки",
-        "wholesale": "Отгрузка",
-        "wholesale-return": "Возврат отгрузки"
+        "purchase": "Отгрузка",  # System purchase -> Partner sees shipment
+        "purchase-return": "Возврат отгрузки",  # System purchase return -> Partner sees shipment return
+        "wholesale": "Закупка",  # System wholesale -> Partner sees purchase
+        "wholesale-return": "Возврат закупки"  # System wholesale return -> Partner sees purchase return
     }
     doc_type_label = type_labels.get(document_type, "Документ")
     
@@ -294,8 +295,9 @@ def generate_partner_balance_excel(
             cell.alignment = Alignment(horizontal='left')
             row += 1
             
-            # Column headers
-            headers = ["Дата", "Документ", "Тип документа", "Начальный остаток", "Дебет", "Кредит", "Остаток", "Курс"]
+            # Column headers (inverted for partner view)
+            partner_debit_label, partner_credit_label = get_inverted_debit_credit_labels("ru")
+            headers = ["Дата", "Документ", "Тип документа", "Начальный остаток", partner_debit_label, partner_credit_label, "Остаток", "Курс"]
             for col, header in enumerate(headers, start=1):
                 cell = ws.cell(row=row, column=col)
                 cell.value = header
@@ -319,7 +321,9 @@ def generate_partner_balance_excel(
                 entry_date = entry.get("date", 0)
                 doc_code = entry.get("document_code", "N/A")
                 doc_type = entry.get("document_type", {})
-                doc_type_name = doc_type.get("name", "Неизвестно") if isinstance(doc_type, dict) else "Неизвестно"
+                doc_type_name_raw = doc_type.get("name", "Неизвестно") if isinstance(doc_type, dict) else "Неизвестно"
+                # Convert to partner perspective
+                doc_type_name = get_partner_document_type_name(doc_type_name_raw, "ru")
                 start_amount = float(entry.get("start_amount", 0))
                 debit = float(entry.get("debit", 0))
                 credit = float(entry.get("credit", 0))
@@ -332,13 +336,15 @@ def generate_partner_balance_excel(
                 else:
                     formatted_date = str(entry_date)
                 
+                # Swap debit/credit values for partner view (inverted terminology)
+                # System debit -> Partner credit column, System credit -> Partner debit column
                 row_data = [
                     formatted_date,
                     doc_code,
                     doc_type_name,
                     start_amount,
-                    debit if debit != 0 else None,
-                    credit if credit != 0 else None,
+                    credit if credit != 0 else None,  # System credit -> Partner debit column
+                    debit if debit != 0 else None,     # System debit -> Partner credit column
                     remainder,
                     exchange_rate if exchange_rate != 1.0 else None
                 ]
@@ -381,18 +387,19 @@ def generate_partner_balance_excel(
             ws.cell(row=row, column=4).border = border
             ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
             
-            ws.cell(row=row, column=5).value = firm_total_debit if firm_total_debit != 0 else None
+            # Swap debit/credit totals for partner view (inverted terminology)
+            ws.cell(row=row, column=5).value = firm_total_credit if firm_total_credit != 0 else None  # System credit -> Partner debit column
             ws.cell(row=row, column=5).font = bold_font
-            if firm_total_debit != 0:
+            if firm_total_credit != 0:
                 ws.cell(row=row, column=5).number_format = '#,##0.00'
             else:
                 ws.cell(row=row, column=5).value = "—"
             ws.cell(row=row, column=5).border = border
             ws.cell(row=row, column=5).alignment = Alignment(horizontal='right')
             
-            ws.cell(row=row, column=6).value = firm_total_credit if firm_total_credit != 0 else None
+            ws.cell(row=row, column=6).value = firm_total_debit if firm_total_debit != 0 else None  # System debit -> Partner credit column
             ws.cell(row=row, column=6).font = bold_font
-            if firm_total_credit != 0:
+            if firm_total_debit != 0:
                 ws.cell(row=row, column=6).number_format = '#,##0.00'
             else:
                 ws.cell(row=row, column=6).value = "—"
@@ -443,9 +450,10 @@ def generate_partner_balance_excel(
         ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
         ws.cell(row=row, column=4).fill = PatternFill(start_color="D0E8F2", end_color="D0E8F2", fill_type="solid")
         
-        ws.cell(row=row, column=5).value = currency_total_debit if currency_total_debit != 0 else None
+        # Swap debit/credit totals for partner view (inverted terminology)
+        ws.cell(row=row, column=5).value = currency_total_credit if currency_total_credit != 0 else None  # System credit -> Partner debit column
         ws.cell(row=row, column=5).font = Font(bold=True, size=13, color="0000FF")
-        if currency_total_debit != 0:
+        if currency_total_credit != 0:
             ws.cell(row=row, column=5).number_format = '#,##0.00'
         else:
             ws.cell(row=row, column=5).value = "—"
@@ -453,9 +461,9 @@ def generate_partner_balance_excel(
         ws.cell(row=row, column=5).alignment = Alignment(horizontal='right')
         ws.cell(row=row, column=5).fill = PatternFill(start_color="D0E8F2", end_color="D0E8F2", fill_type="solid")
         
-        ws.cell(row=row, column=6).value = currency_total_credit if currency_total_credit != 0 else None
+        ws.cell(row=row, column=6).value = currency_total_debit if currency_total_debit != 0 else None  # System debit -> Partner credit column
         ws.cell(row=row, column=6).font = Font(bold=True, size=13, color="0000FF")
-        if currency_total_credit != 0:
+        if currency_total_debit != 0:
             ws.cell(row=row, column=6).number_format = '#,##0.00'
         else:
             ws.cell(row=row, column=6).value = "—"

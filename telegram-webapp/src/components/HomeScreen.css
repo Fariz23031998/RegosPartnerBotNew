@@ -29,12 +29,12 @@
 
 .home-icon-button {
   width: 100%;
-  max-width: 300px;
+  max-width: 150px;
   background: var(--tg-theme-button-color, #0088cc);
   color: var(--tg-theme-button-text-color, #ffffff);
   border: none;
   border-radius: 20px;
-  padding: 40px 20px;
+  padding: 10px 30px;
   cursor: pointer;
   display: flex;
   flex-direction: column;

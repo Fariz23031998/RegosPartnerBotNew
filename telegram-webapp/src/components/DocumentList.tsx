@@ -247,36 +247,38 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
 
   return (
     <div className="document-list">
+      {onBack && (
+        <button className="back-button-icon" onClick={onBack} aria-label="Назад">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
       <div className="header-section">
-        {onBack && (
-          <button className="back-button" onClick={onBack} style={{ marginBottom: '12px' }}>
-            ← Назад
-          </button>
-        )}
         <div className="tabs">
           <button
             className={activeTab === 'purchase' ? 'active' : ''}
             onClick={() => setActiveTab('purchase')}
           >
-            Закупки
+            Отгрузки
           </button>
           <button
             className={activeTab === 'purchase-return' ? 'active' : ''}
             onClick={() => setActiveTab('purchase-return')}
           >
-            Возврат закупок
+            Возврат отгрузок
           </button>
           <button
             className={activeTab === 'wholesale' ? 'active' : ''}
             onClick={() => setActiveTab('wholesale')}
           >
-            Отгрузки
+            Закупки
           </button>
           <button
             className={activeTab === 'wholesale-return' ? 'active' : ''}
             onClick={() => setActiveTab('wholesale-return')}
           >
-            Возврат отгрузок
+            Возврат закупок
           </button>
         <button
           className={activeTab === 'payment' ? 'active' : ''}
@@ -359,10 +361,10 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
           <div className="totals-grid">
             {Object.entries(documentTotals).map(([type, currencyTotals]) => {
               const typeLabels: { [key: string]: string } = {
-                'purchase': 'Закупки',
-                'purchase-return': 'Возврат закупок',
-                'wholesale': 'Отгрузки',
-                'wholesale-return': 'Возврат отгрузок',
+                'purchase': 'Отгрузки',  // System purchase -> Partner sees shipment
+                'purchase-return': 'Возврат отгрузок',  // System purchase return -> Partner sees shipment return
+                'wholesale': 'Закупки',  // System wholesale -> Partner sees purchase
+                'wholesale-return': 'Возврат закупок',  // System wholesale return -> Partner sees purchase return
                 'payment': 'Платежи'
               }
 

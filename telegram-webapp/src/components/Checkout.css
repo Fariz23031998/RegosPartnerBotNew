@@ -11,25 +11,7 @@
   margin-bottom: 24px;
 }
 
-.checkout-header .back-button {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  background: var(--tg-theme-button-color, #0088cc);
-  color: var(--tg-theme-button-text-color, #ffffff);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.checkout-header .back-button:active {
-  opacity: 0.8;
-}
+/* Back button styles moved to global index.css as .back-button-icon */
 
 .checkout-header h2 {
   font-size: 24px;

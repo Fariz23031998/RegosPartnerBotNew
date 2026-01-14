@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
+import { getInvertedDebitCreditLabels, getPartnerDocumentTypeName } from '../utils/partnerTerminology'
 import './PartnerBalance.css'
 
 interface PartnerBalanceProps {
@@ -48,6 +49,9 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
   const [selectedCurrencies, setSelectedCurrencies] = useState<number[]>([])
   const [balance, setBalance] = useState<BalanceEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Get inverted labels for partner view
+  const { debitLabel, creditLabel } = getInvertedDebitCreditLabels("ru")
   const [isLoadingBalance, setIsLoadingBalance] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -264,7 +268,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                 <div className="balance-entry-details">
                   <div className="balance-detail-row">
                     <span className="balance-label">Тип документа:</span>
-                    <span className="balance-value">{entry.document_type.name}</span>
+                    <span className="balance-value">{getPartnerDocumentTypeName(entry.document_type.name, "ru")}</span>
                   </div>
                   <div className="balance-detail-row">
                     <span className="balance-label">Предприятие:</span>
@@ -283,22 +287,24 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                       })}
                     </span>
                   </div>
-                  {entry.debit !== 0 && (
+                  {/* Inverted for partner view: system credit -> partner debit */}
+                  {entry.credit !== 0 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">Дебет:</span>
+                      <span className="balance-label">{debitLabel}:</span>
                       <span className="balance-value debit">
-                        +{entry.debit.toLocaleString('ru-RU', {
+                        +{entry.credit.toLocaleString('ru-RU', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}
                       </span>
                     </div>
                   )}
-                  {entry.credit !== 0 && (
+                  {/* Inverted for partner view: system debit -> partner credit */}
+                  {entry.debit !== 0 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">Кредит:</span>
+                      <span className="balance-label">{creditLabel}:</span>
                       <span className="balance-value credit">
-                        -{entry.credit.toLocaleString('ru-RU', {
+                        -{entry.debit.toLocaleString('ru-RU', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}

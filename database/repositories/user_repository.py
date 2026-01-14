@@ -16,6 +16,11 @@ class UserRepository:
     
     async def create(self, username: Optional[str] = None, email: Optional[str] = None) -> User:
         """Create a new user"""
+        # Convert empty strings to None to avoid UNIQUE constraint violations
+        # SQLite treats empty strings as distinct values, so multiple empty strings violate UNIQUE
+        username = username if username and username.strip() else None
+        email = email if email and email.strip() else None
+        
         user = User(username=username, email=email)
         self.session.add(user)
         await self.session.commit()
@@ -41,11 +46,12 @@ class UserRepository:
         email: Optional[str] = None
     ) -> Optional[User]:
         """Update user"""
+        # Convert empty strings to None to avoid UNIQUE constraint violations
         update_values = {}
         if username is not None:
-            update_values["username"] = username
+            update_values["username"] = username if username and username.strip() else None
         if email is not None:
-            update_values["email"] = email
+            update_values["email"] = email if email and email.strip() else None
         
         if update_values:
             from sqlalchemy import update as sql_update

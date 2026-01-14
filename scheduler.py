@@ -343,7 +343,7 @@ class ScheduleExecutor:
         start_date: str,
         end_date: str
     ):
-        """Send partner balance Excel file to Telegram chat"""
+        """Send partner balance Excel file to Telegram chat with text message if balance is negative"""
         try:
             # Get firm and currency IDs
             firm_ids = [f.get("id") for f in firms if f.get("id")]
@@ -381,27 +381,112 @@ class ScheduleExecutor:
             # Execute all requests in parallel
             responses = await asyncio.gather(*balance_tasks, return_exceptions=True)
             
-            # Combine all results
+            # Combine all results and group by firm/currency
             all_balance_entries = []
+            balance_groups = {}  # (firm_id, currency_id) -> list of entries
+            
             for response in responses:
                 if isinstance(response, Exception):
                     logger.warning(f"Error fetching balance: {response}")
                     continue
                 if response.get("ok"):
                     result = response.get("result", [])
-                    if isinstance(result, list):
-                        all_balance_entries.extend(result)
-                    elif result:
-                        all_balance_entries.append(result)
+                    entries = result if isinstance(result, list) else [result] if result else []
+                    
+                    for entry in entries:
+                        all_balance_entries.append(entry)
+                        
+                        # Extract firm and currency from entry
+                        firm = entry.get("firm", {})
+                        currency = entry.get("currency", {})
+                        firm_id = firm.get("id") if isinstance(firm, dict) else None
+                        currency_id = currency.get("id") if isinstance(currency, dict) else None
+                        
+                        if firm_id and currency_id:
+                            key = (firm_id, currency_id)
+                            if key not in balance_groups:
+                                balance_groups[key] = []
+                            balance_groups[key].append(entry)
             
             if not all_balance_entries:
                 logger.info(f"No balance data found for partner {partner_id}")
                 return
             
+            # Check if any balance is negative (last.start_amount + debit - credit < 0)
+            has_negative_balance = False
+            negative_balances = []  # List of (firm_name, currency_name, balance) tuples
+            
+            # Create lookup dictionaries for firm and currency names (from firms/currencies lists)
+            firm_dict = {f.get("id"): f.get("name", f"Firm {f.get('id')}") for f in firms}
+            currency_dict = {c.get("id"): c.get("name", f"Currency {c.get('id')}") for c in currencies}
+            
+            for (firm_id, currency_id), entries in balance_groups.items():
+                if not entries:
+                    continue
+                
+                # Sort entries by date to get the last one
+                sorted_entries = sorted(entries, key=lambda x: x.get("date", 0))
+                last_entry = sorted_entries[-1]
+                
+                start_amount = float(last_entry.get("start_amount", 0))
+                debit = float(last_entry.get("debit", 0))
+                credit = float(last_entry.get("credit", 0))
+                final_balance = start_amount + debit - credit
+                
+                if final_balance < 0:
+                    has_negative_balance = True
+                    
+                    # Try to get names from entry first, then from lookup dict
+                    firm = last_entry.get("firm", {})
+                    currency = last_entry.get("currency", {})
+                    
+                    firm_name = (
+                        firm.get("name") if isinstance(firm, dict) and firm.get("name")
+                        else firm_dict.get(firm_id, f"Firm {firm_id}")
+                    )
+                    currency_name = (
+                        currency.get("name") if isinstance(currency, dict) and currency.get("name")
+                        else currency_dict.get(currency_id, f"Currency {currency_id}")
+                    )
+                    
+                    negative_balances.append((firm_name, currency_name, final_balance))
+            
+            # Only send if there's a negative balance
+            if not has_negative_balance:
+                logger.info(f"Partner {partner_id} has no negative balance, skipping notification")
+                return
+            
+            # Generate text message with balance summary
+            message_lines = [
+                "⚠️ Уведомление о балансе",
+                "",
+                f"Партнер ID: {partner_id}",
+                "",
+                "Отрицательный баланс:",
+                ""
+            ]
+            
+            for firm_name, currency_name, balance in negative_balances:
+                message_lines.append(f"🏢 {firm_name} ({currency_name}): {balance:,.2f}")
+            
+            message_lines.extend([
+                "",
+                "Подробная информация в прикрепленном файле."
+            ])
+            
+            text_message = "\n".join(message_lines)
+            
+            # Send text message first
+            await bot_manager.send_message(
+                telegram_token,
+                telegram_chat_id,
+                text_message
+            )
+            
             # Generate Excel file
             excel_path = generate_partner_balance_excel(all_balance_entries)
             
-            # Send to Telegram
+            # Send Excel file to Telegram
             caption = f"📊 Баланс партнера (ID: {partner_id})"
             result = await bot_manager.send_document(
                 telegram_token,

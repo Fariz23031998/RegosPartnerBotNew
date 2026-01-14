@@ -193,3 +193,58 @@ async def update_partner_telegram_id(
         logger.error(f"Error updating partner with Telegram ID: {e}", exc_info=True)
         return False
 
+
+async def search_partner_by_telegram_id(
+    regos_integration_token: str,
+    telegram_chat_id: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Search for a partner in REGOS by Telegram chat ID (stored in oked field).
+    
+    Args:
+        regos_integration_token: REGOS integration token
+        telegram_chat_id: Telegram chat ID to search for (as string)
+        
+    Returns:
+        dict: Partner data if found, None otherwise
+    """
+    if not regos_integration_token:
+        logger.warning("REGOS integration token not provided")
+        return None
+    
+    try:
+        # Partner/Get endpoint to get all partners
+        request_data = {
+            "deleted_mark": False
+        }
+        
+        logger.info(f"Searching for partner with Telegram chat ID: {telegram_chat_id}")
+        response = await regos_async_api_request(
+            endpoint="Partner/Get",
+            request_data=request_data,
+            token=regos_integration_token,
+            timeout_seconds=30
+        )
+        
+        if response.get("ok"):
+            result = response.get("result")
+            # Handle both list and single object responses
+            if result:
+                partners = result if isinstance(result, list) else [result]
+                
+                # Find partner matching the Telegram chat ID in oked field
+                for partner in partners:
+                    if isinstance(partner, dict):
+                        partner_oked = partner.get("oked", "")
+                        # Compare as strings (oked field stores Telegram ID as string)
+                        if partner_oked and str(partner_oked) == str(telegram_chat_id):
+                            logger.info(f"Found partner: {partner.get('id')} - {partner.get('name')}")
+                            return partner
+        
+        logger.info(f"No partner found with Telegram chat ID: {telegram_chat_id}")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error searching for partner by Telegram ID: {e}", exc_info=True)
+        return None
+

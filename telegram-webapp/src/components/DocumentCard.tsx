@@ -13,17 +13,20 @@ interface DocumentCardProps {
   onClick?: () => void
 }
 
+import { getPartnerDocumentTypeName } from '../utils/partnerTerminology'
+
 function DocumentCard({ document, type, formatDate, onClick }: DocumentCardProps) {
   const getDocumentTypeLabel = () => {
+    // Map system document types to partner perspective
     switch (type) {
       case 'purchase':
-        return 'Закупка'
+        return 'Отгрузка'  // System purchase -> Partner sees shipment
       case 'purchase-return':
-        return 'Возврат закупки'
+        return 'Возврат отгрузки'  // System purchase return -> Partner sees shipment return
       case 'wholesale':
-        return 'Отгрузка'
+        return 'Закупка'  // System wholesale -> Partner sees purchase
       case 'wholesale-return':
-        return 'Возврат отгрузки'
+        return 'Возврат закупки'  // System wholesale return -> Partner sees purchase return
       case 'payment':
         return 'Платеж'
       default:

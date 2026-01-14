@@ -59,6 +59,13 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { addToCart, updateQuantity, getItemQuantity, getCartItemCount } = useCart()
   
+  // Quick filter state
+  type QuickFilter = 'all' | 'in-stock' | 'low-stock' | 'cheap' | 'expensive'
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(() => {
+    const saved = localStorage.getItem('shop-quick-filter')
+    return (saved as QuickFilter) || 'all'
+  })
+  
   // Orders state
   const [orders, setOrders] = useState<any[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
@@ -91,12 +98,17 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     }
   }, [searchQuery])
 
+  // Save quick filter to localStorage
+  useEffect(() => {
+    localStorage.setItem('shop-quick-filter', quickFilter)
+  }, [quickFilter])
+
   useEffect(() => {
     // Reset and fetch when filters change
     setOffset(0)
     setProducts([])
     fetchProducts(true)
-  }, [selectedGroups, debouncedSearchQuery])
+  }, [selectedGroups, debouncedSearchQuery, quickFilter])
 
   const fetchGroups = async () => {
     try {
@@ -214,6 +226,49 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     return new Intl.NumberFormat('ru-RU').format(price)
   }
 
+  // Highlight search matches in text
+  const highlightText = (text: string, query: string) => {
+    if (!query || !query.trim()) {
+      return text
+    }
+    
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${escapedQuery})`, 'gi')
+    const parts = text.split(regex)
+    
+    return parts.map((part, index) => {
+      // Check if this part matches the query (case-insensitive)
+      if (part.toLowerCase() === query.toLowerCase()) {
+        return <mark key={index} className="search-highlight">{part}</mark>
+      }
+      return part
+    })
+  }
+
+  // Apply quick filters to products
+  const applyQuickFilter = (productList: Product[]) => {
+    if (quickFilter === 'all') {
+      return productList
+    }
+    
+    return productList.filter(product => {
+      switch (quickFilter) {
+        case 'in-stock':
+          return product.quantity.common > 10
+        case 'low-stock':
+          return product.quantity.common > 0 && product.quantity.common <= 10
+        case 'cheap':
+          // Assuming "cheap" means below median price - for simplicity, below 100000
+          return product.price < 100000
+        case 'expensive':
+          // Assuming "expensive" means above median price - for simplicity, above 100000
+          return product.price >= 100000
+        default:
+          return true
+      }
+    })
+  }
+
   const fetchOrders = async () => {
     try {
       setIsLoadingOrders(true)
@@ -294,8 +349,10 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
   return (
     <div className="shop">
       <div className="shop-header">
-        <button className="back-button" onClick={onBack} title="Назад">
-          ←
+        <button className="back-button-icon" onClick={onBack} aria-label="Назад">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
         <div className="shop-tabs">
           <button
@@ -327,7 +384,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
 
       {activeTab === 'products' && (
         <>
-          <div className="shop-filters">
+          <div className="shop-filters sticky-filters">
             <div className="search-box">
               <input
                 type="text"
@@ -336,6 +393,39 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
               />
+            </div>
+
+            <div className="quick-filters">
+              <button
+                className={`quick-filter-chip ${quickFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setQuickFilter('all')}
+              >
+                Все
+              </button>
+              <button
+                className={`quick-filter-chip ${quickFilter === 'in-stock' ? 'active' : ''}`}
+                onClick={() => setQuickFilter('in-stock')}
+              >
+                В наличии
+              </button>
+              <button
+                className={`quick-filter-chip ${quickFilter === 'low-stock' ? 'active' : ''}`}
+                onClick={() => setQuickFilter('low-stock')}
+              >
+                Мало
+              </button>
+              <button
+                className={`quick-filter-chip ${quickFilter === 'cheap' ? 'active' : ''}`}
+                onClick={() => setQuickFilter('cheap')}
+              >
+                Дешевые
+              </button>
+              <button
+                className={`quick-filter-chip ${quickFilter === 'expensive' ? 'active' : ''}`}
+                onClick={() => setQuickFilter('expensive')}
+              >
+                Дорогие
+              </button>
             </div>
 
             {groups.length > 0 && (
@@ -378,7 +468,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
           ) : (
             <>
               <div className="products-grid">
-            {products.map((product) => {
+            {applyQuickFilter(products).map((product) => {
               const itemQuantity = getItemQuantity(product.item.id)
               const hasImage = product.image_url || product.item.image_url
               
@@ -394,7 +484,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
                     )}
                   </div>
                   <div className="product-info">
-                    <div className="product-name">{product.item.name}</div>
+                    <div className="product-name">{highlightText(product.item.name, debouncedSearchQuery)}</div>
                     <div className="product-details">
                       <div className="product-price">{formatPrice(product.price)} сум</div>
                       <div className="product-quantity">Остаток: {product.quantity.common}</div>

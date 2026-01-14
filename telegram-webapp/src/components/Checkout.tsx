@@ -79,8 +79,10 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
   return (
     <div className="checkout">
       <div className="checkout-header">
-        <button className="back-button" onClick={onBack} title="Назад">
-          ←
+        <button className="back-button-icon" onClick={onBack} aria-label="Назад">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
         <h2>Оформление заказа</h2>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
+import { getPartnerDocumentTypeName } from '../utils/partnerTerminology'
 import './DocumentDetail.css'
 
 interface DocumentDetailProps {
@@ -98,15 +99,16 @@ function DocumentDetail({
   }
 
   const getDocumentTypeLabel = () => {
+    // Map system document types to partner perspective
     switch (documentType) {
       case 'purchase':
-        return 'Закупка'
+        return 'Отгрузка'  // System purchase -> Partner sees shipment
       case 'purchase-return':
-        return 'Возврат закупки'
+        return 'Возврат отгрузки'  // System purchase return -> Partner sees shipment return
       case 'wholesale':
-        return 'Отгрузка'
+        return 'Закупка'  // System wholesale -> Partner sees purchase
       case 'wholesale-return':
-        return 'Возврат отгрузки'
+        return 'Возврат закупки'  // System wholesale return -> Partner sees purchase return
       default:
         return 'Документ'
     }
@@ -176,7 +178,11 @@ function DocumentDetail({
     return (
       <div>
         <ErrorMessage message={error} />
-        <button onClick={onBack} className="back-button">Назад</button>
+        <button onClick={onBack} className="back-button-icon" aria-label="Назад">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
     )
   }
@@ -185,7 +191,11 @@ function DocumentDetail({
     return (
       <div>
         <ErrorMessage message="Document not found" />
-        <button onClick={onBack} className="back-button">Назад</button>
+        <button onClick={onBack} className="back-button-icon" aria-label="Назад">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
     )
   }
@@ -193,7 +203,11 @@ function DocumentDetail({
   return (
     <div className="document-detail">
       <div className="document-header-section">
-        <button onClick={onBack} className="back-button">← Назад</button>
+        <button onClick={onBack} className="back-button-icon" aria-label="Назад">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
         <div className="header-row">
           <h2>{getDocumentTypeLabel()}</h2>
           <button 

@@ -1,21 +1,6 @@
 .document-list {
   padding: 16px;
-}
-
-.back-button {
-  padding: 8px 16px;
-  background: var(--tg-theme-button-color, #0088cc);
-  color: var(--tg-theme-button-text-color, #ffffff);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 12px;
-}
-
-.back-button:active {
-  opacity: 0.8;
+  position: relative;
 }
 
 .header-section {
