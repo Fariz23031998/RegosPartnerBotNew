@@ -31,11 +31,30 @@ function Dashboard() {
   }, [])
 
   const fetchStats = async () => {
+    // Ensure token is set before making requests
+    const token = localStorage.getItem('token')
+    if (token && token !== 'undefined' && token.trim() !== '') {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      console.log('[Dashboard] Token set in axios defaults before fetchStats')
+    } else {
+      console.warn('[Dashboard] No valid token found before fetchStats')
+    }
+
     try {
+      // Make requests with individual error handling to prevent one failure from affecting others
       const [usersRes, botsRes, registeredBotsRes] = await Promise.all([
-        api.get('/users'),
-        api.get('/bots'),
-        api.get('/registered-bots'),
+        api.get('/users').catch(err => {
+          console.error('[Dashboard] Error fetching users:', err)
+          return { data: [] }
+        }),
+        api.get('/bots').catch(err => {
+          console.error('[Dashboard] Error fetching bots:', err)
+          return { data: [] }
+        }),
+        api.get('/registered-bots').catch(err => {
+          console.error('[Dashboard] Error fetching registered bots:', err)
+          return { data: {} }
+        }),
       ])
       
       // Ensure responses are arrays/objects, handle errors gracefully
@@ -54,7 +73,7 @@ function Dashboard() {
         registeredBots: Object.keys(registeredBotsData).length,
       })
     } catch (error: any) {
-      console.error('Error fetching stats:', error)
+      console.error('[Dashboard] Error fetching stats:', error)
       // Set stats to 0 on error to prevent map/filter errors
       setStats({
         totalUsers: 0,
