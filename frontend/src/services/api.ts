@@ -3,9 +3,10 @@ import axios from 'axios'
 // Get baseURL from environment variable or use default
 // For separate domains, set VITE_API_BASE_URL in .env file
 // Examples:
+//   VITE_API_BASE_URL=/api (for same domain)
 //   VITE_API_BASE_URL=/regos-partner-bot/api (for subpath)
 //   VITE_API_BASE_URL=https://api.example.com/api (for separate domain)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/regos-partner-bot/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -127,7 +128,9 @@ api.interceptors.response.use(
         console.log('[API] Redirecting to login page due to 401 error')
         // Add a small delay to allow console inspection
         setTimeout(() => {
-          window.location.href = '/regos-partner-bot/admin/login'
+        // Redirect to login page using the app's base path
+        // The app is deployed at /admin/ so redirect to /admin/login
+        window.location.href = '/admin/login'
         }, 2000)
       }
     } else if (isAuthRequest) {
