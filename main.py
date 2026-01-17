@@ -68,7 +68,7 @@ app = FastAPI(
     description="Multi-bot webhook engine using FastAPI",
     version="1.0.0",
     lifespan=lifespan,
-    root_path="/regos-partner-bot/api"
+    # root_path removed - we're using /api directly, not /regos-partner-bot/api
 )
 
 # Add CORS middleware
