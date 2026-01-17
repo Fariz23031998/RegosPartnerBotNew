@@ -77,26 +77,29 @@ class ScheduleExecutor:
         if job_id in self.job_ids:
             try:
                 self.scheduler.remove_job(job_id)
-            except:
-                pass
+                logger.info(f"Removed existing job {job_id}")
+            except Exception as e:
+                logger.debug(f"Job {job_id} doesn't exist or couldn't be removed: {e}")
         
         # Create trigger based on schedule option
         trigger = self._create_trigger(schedule)
         if not trigger:
-            logger.warning(f"Could not create trigger for schedule {schedule.id}")
+            logger.error(f"Could not create trigger for schedule {schedule.id} (type: {schedule.schedule_type}, option: {schedule.schedule_option}, time: {schedule.time}, value: {schedule.schedule_value})")
             return
         
         # Add job to scheduler
-        self.scheduler.add_job(
-            self._execute_schedule_job,
-            trigger=trigger,
-            id=job_id,
-            args=[schedule.id],
-            replace_existing=True
-        )
-        
-        self.job_ids.add(job_id)
-        logger.info(f"Added schedule job {job_id} with trigger: {trigger}")
+        try:
+            self.scheduler.add_job(
+                self._execute_schedule_job,
+                trigger=trigger,
+                id=job_id,
+                args=[schedule.id],
+                replace_existing=True
+            )
+            self.job_ids.add(job_id)
+            logger.info(f"Successfully added schedule job {job_id} (schedule_id={schedule.id}, type={schedule.schedule_type}, option={schedule.schedule_option}, time={schedule.time}) with trigger: {trigger}")
+        except Exception as e:
+            logger.error(f"Failed to add schedule job {job_id}: {e}", exc_info=True)
     
     def _create_trigger(self, schedule):
         """Create APScheduler trigger from schedule configuration"""
@@ -106,38 +109,56 @@ class ScheduleExecutor:
             
             if schedule.schedule_option == "daily":
                 # Daily: run every day at specified time
+                logger.info(f"Creating daily trigger for schedule {schedule.id} at {schedule.time}")
                 return CronTrigger(hour=schedule_hour, minute=schedule_minute)
             
             elif schedule.schedule_option == "weekdays":
                 # Weekdays: run on specified days of week
+                schedule_value = None
                 if schedule.schedule_value:
                     try:
                         schedule_value = json.loads(schedule.schedule_value) if isinstance(schedule.schedule_value, str) else schedule.schedule_value
-                        if isinstance(schedule_value, list) and schedule_value:
-                            # APScheduler uses 0=Monday, 6=Sunday (same as Python)
-                            # Convert to day_of_week parameter (mon-sun)
-                            day_names = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-                            days = [day_names[d] for d in schedule_value if 0 <= d <= 6]
-                            if days:
-                                return CronTrigger(hour=schedule_hour, minute=schedule_minute, day_of_week=','.join(days))
                     except Exception as e:
-                        logger.warning(f"Error parsing weekdays for schedule {schedule.id}: {e}")
+                        logger.warning(f"Error parsing weekdays JSON for schedule {schedule.id}: {e}, value: {schedule.schedule_value}")
+                        return None
+                
+                if schedule_value and isinstance(schedule_value, list) and len(schedule_value) > 0:
+                    # APScheduler uses 0=Monday, 6=Sunday (same as Python)
+                    # Convert to day_of_week parameter (mon-sun)
+                    day_names = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+                    days = [day_names[d] for d in schedule_value if 0 <= d <= 6]
+                    if days:
+                        logger.info(f"Creating weekdays trigger for schedule {schedule.id} at {schedule.time} on days: {days}")
+                        return CronTrigger(hour=schedule_hour, minute=schedule_minute, day_of_week=','.join(days))
+                    else:
+                        logger.warning(f"No valid weekdays found for schedule {schedule.id}, schedule_value: {schedule_value}")
+                else:
+                    logger.warning(f"Invalid or empty schedule_value for weekdays schedule {schedule.id}: {schedule_value}")
                 return None
             
             elif schedule.schedule_option == "monthly":
                 # Monthly: run on specified days of month
+                schedule_value = None
                 if schedule.schedule_value:
                     try:
                         schedule_value = json.loads(schedule.schedule_value) if isinstance(schedule.schedule_value, str) else schedule.schedule_value
-                        if isinstance(schedule_value, list) and schedule_value:
-                            # Filter valid days (1-31)
-                            days = [d for d in schedule_value if 1 <= d <= 31]
-                            if days:
-                                return CronTrigger(hour=schedule_hour, minute=schedule_minute, day=','.join(map(str, days)))
                     except Exception as e:
-                        logger.warning(f"Error parsing monthly days for schedule {schedule.id}: {e}")
+                        logger.warning(f"Error parsing monthly JSON for schedule {schedule.id}: {e}, value: {schedule.schedule_value}")
+                        return None
+                
+                if schedule_value and isinstance(schedule_value, list) and len(schedule_value) > 0:
+                    # Filter valid days (1-31)
+                    days = [d for d in schedule_value if 1 <= d <= 31]
+                    if days:
+                        logger.info(f"Creating monthly trigger for schedule {schedule.id} at {schedule.time} on days: {days}")
+                        return CronTrigger(hour=schedule_hour, minute=schedule_minute, day=','.join(map(str, days)))
+                    else:
+                        logger.warning(f"No valid monthly days found for schedule {schedule.id}, schedule_value: {schedule_value}")
+                else:
+                    logger.warning(f"Invalid or empty schedule_value for monthly schedule {schedule.id}: {schedule_value}")
                 return None
             
+            logger.warning(f"Unknown schedule_option '{schedule.schedule_option}' for schedule {schedule.id}")
             return None
         
         except Exception as e:

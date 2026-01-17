@@ -307,3 +307,47 @@ async def delete_bot_schedule(
     except Exception as e:
         logger.error(f"Error deleting bot schedule: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/debug/status")
+async def get_scheduler_status(
+    current_user: dict = Depends(verify_admin)
+):
+    """Get scheduler status and loaded jobs (for debugging)"""
+    try:
+        from scheduler import schedule_executor
+        
+        scheduler_info = {
+            "scheduler_running": schedule_executor.scheduler is not None and schedule_executor.scheduler.running if schedule_executor.scheduler else False,
+            "job_count": len(schedule_executor.job_ids) if schedule_executor.job_ids else 0,
+            "job_ids": list(schedule_executor.job_ids) if schedule_executor.job_ids else []
+        }
+        
+        # Get all schedules from database
+        db = await get_db()
+        async with db.async_session_maker() as session:
+            schedule_repo = BotScheduleRepository(session)
+            all_schedules = await schedule_repo.get_all()
+            
+            schedules_info = []
+            for schedule in all_schedules:
+                schedule_dict = schedule.to_dict()
+                schedules_info.append({
+                    "id": schedule.id,
+                    "bot_id": schedule.bot_id,
+                    "schedule_type": schedule.schedule_type,
+                    "time": schedule.time,
+                    "schedule_option": schedule.schedule_option,
+                    "schedule_value": schedule_dict.get("schedule_value"),
+                    "schedule_value_raw": schedule.schedule_value,  # Raw string from DB
+                    "enabled": schedule.enabled,
+                    "has_job": f"schedule_{schedule.id}" in schedule_executor.job_ids if schedule_executor.job_ids else False
+                })
+        
+        return {
+            "scheduler": scheduler_info,
+            "schedules": schedules_info
+        }
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
