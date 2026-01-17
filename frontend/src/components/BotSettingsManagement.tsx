@@ -48,11 +48,14 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         api.get('/bots'),
       ])
       
-      setSettings(settingsResponse.data)
-      setBots(botsResponse.data)
+      // Ensure responses are arrays
+      setSettings(Array.isArray(settingsResponse.data) ? settingsResponse.data : [])
+      setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
       setError('')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch data')
+      setSettings([]) // Set empty arrays on error
+      setBots([])
     } finally {
       setLoading(false)
     }

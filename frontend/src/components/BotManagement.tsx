@@ -42,11 +42,14 @@ function BotManagement({ onUpdate }: BotManagementProps) {
         api.get('/users'),
       ])
       
-      setBots(botsResponse.data)
-      setUsers(usersResponse.data)
+      // Ensure responses are arrays
+      setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
+      setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : [])
       setError('')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch data')
+      setBots([]) // Set empty arrays on error
+      setUsers([])
     } finally {
       setLoading(false)
     }

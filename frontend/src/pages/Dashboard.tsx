@@ -38,17 +38,30 @@ function Dashboard() {
         api.get('/registered-bots'),
       ])
       
-      const allBots = botsRes.data || []
-      const activeBotsCount = allBots.filter((b: any) => b.is_active).length
+      // Ensure responses are arrays/objects, handle errors gracefully
+      const usersData = Array.isArray(usersRes.data) ? usersRes.data : []
+      const botsData = Array.isArray(botsRes.data) ? botsRes.data : []
+      const registeredBotsData = registeredBotsRes.data && typeof registeredBotsRes.data === 'object' 
+        ? registeredBotsRes.data 
+        : {}
+      
+      const activeBotsCount = botsData.filter((b: any) => b.is_active).length
 
       setStats({
-        totalUsers: usersRes.data?.length || 0,
-        totalBots: allBots.length,
+        totalUsers: usersData.length,
+        totalBots: botsData.length,
         activeBots: activeBotsCount,
-        registeredBots: Object.keys(registeredBotsRes.data || {}).length,
+        registeredBots: Object.keys(registeredBotsData).length,
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching stats:', error)
+      // Set stats to 0 on error to prevent map/filter errors
+      setStats({
+        totalUsers: 0,
+        totalBots: 0,
+        activeBots: 0,
+        registeredBots: 0,
+      })
     }
   }
 

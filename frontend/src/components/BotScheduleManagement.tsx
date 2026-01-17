@@ -62,11 +62,14 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
         api.get('/bots'),
       ])
       
-      setSchedules(schedulesResponse.data)
-      setBots(botsResponse.data)
+      // Ensure responses are arrays
+      setSchedules(Array.isArray(schedulesResponse.data) ? schedulesResponse.data : [])
+      setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
       setError('')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch data')
+      setSchedules([]) // Set empty arrays on error
+      setBots([])
     } finally {
       setLoading(false)
     }

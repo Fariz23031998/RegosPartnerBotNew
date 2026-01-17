@@ -40,6 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.post('/auth/login', { username, password })
       const { access_token } = response.data
+      
+      // Validate token before storing
+      if (!access_token || access_token === 'undefined' || access_token.trim() === '') {
+        throw new Error('Invalid token received from server')
+      }
+      
       localStorage.setItem('token', access_token)
       api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
       setIsAuthenticated(true)

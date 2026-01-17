@@ -30,10 +30,12 @@ function UserManagement({ onUpdate }: UserManagementProps) {
     try {
       setLoading(true)
       const response = await api.get('/users')
-      setUsers(response.data)
+      // Ensure response is an array
+      setUsers(Array.isArray(response.data) ? response.data : [])
       setError('')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch users')
+      setUsers([]) // Set empty array on error
     } finally {
       setLoading(false)
     }

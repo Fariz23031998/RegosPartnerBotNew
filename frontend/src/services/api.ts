@@ -1,16 +1,27 @@
 import axios from 'axios'
 
+// Get baseURL from environment variable or use default
+// For separate domains, set VITE_API_BASE_URL in .env file
+// Examples:
+//   VITE_API_BASE_URL=/regos-partner-bot/api (for subpath)
+//   VITE_API_BASE_URL=https://api.example.com/api (for separate domain)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/regos-partner-bot/api'
+
 export const api = axios.create({
-  baseURL: '/regos-partner-bot/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Add token to requests if available (only in browser)
+// Clean up invalid tokens on initialization (only in browser)
 if (typeof window !== 'undefined') {
   const token = localStorage.getItem('token')
-  if (token) {
+  // Remove invalid tokens (undefined, null strings, or empty)
+  if (token === 'undefined' || token === 'null' || (token && token.trim() === '')) {
+    localStorage.removeItem('token')
+    console.warn('[API] Removed invalid token from localStorage')
+  } else if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`
   }
 }
@@ -19,16 +30,21 @@ if (typeof window !== 'undefined') {
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
-    if (token) {
+    // Validate token - ensure it's not "undefined" string or empty
+    if (token && token !== 'undefined' && token.trim() !== '') {
       config.headers.Authorization = `Bearer ${token}`
       // Debug logging (remove in production)
       console.log('[API Request]', config.method?.toUpperCase(), config.url, {
         hasToken: !!token,
-        tokenPreview: token.substring(0, 20) + '...',
+        tokenPreview: token.length > 20 ? token.substring(0, 20) + '...' : token.substring(0, token.length),
         headers: config.headers
       })
     } else {
-      console.warn('[API Request] No token found in localStorage', config.url)
+      // Remove invalid token
+      if (token === 'undefined' || token === 'null') {
+        localStorage.removeItem('token')
+      }
+      console.warn('[API Request] No valid token found in localStorage', config.url)
     }
     return config
   },
