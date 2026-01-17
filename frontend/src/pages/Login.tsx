@@ -16,11 +16,24 @@ function Login() {
     setError('')
     setLoading(true)
 
+    console.log('[Login] Form submitted', {
+      username,
+      passwordLength: password.length,
+      timestamp: new Date().toISOString(),
+    })
+
     try {
       await login(username, password)
+      console.log('[Login] Login successful, navigating to dashboard')
       navigate('/')
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.')
+      const errorMessage = err.message || 'Login failed. Please check your credentials.'
+      console.error('[Login] Login failed', {
+        username,
+        errorMessage,
+        error: err,
+      })
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
