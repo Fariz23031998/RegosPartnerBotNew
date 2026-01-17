@@ -6,6 +6,8 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
 import uvicorn
 
 from database import get_db, init_db, close_db
@@ -77,15 +79,31 @@ cors_origins_env = os.getenv("CORS_ORIGINS", "")
 if cors_origins_env:
     cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
 else:
+    # Default to allowing all origins in production (you should set CORS_ORIGINS env var)
+    # For development, include localhost origins
     cors_origins = [
         "http://localhost:5173",  # Admin panel (Vite default port)
         "http://localhost:3000",  # Alternative admin panel port
         "http://localhost:5175",   # Telegram web app port
+        "https://no-thing.uz",     # Production domain
+        "https://www.no-thing.uz", # Production domain with www
     ]
 
 # Log CORS configuration for debugging
 logger.info(f"CORS origins configured: {cors_origins}")
 
+# Add middleware to log Authorization headers for debugging
+class AuthHeaderLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            logger.info(f"[AUTH DEBUG] Request to {request.url.path} - Authorization header present: {auth_header[:30]}...")
+        else:
+            logger.warning(f"[AUTH DEBUG] Request to {request.url.path} - NO Authorization header")
+        response = await call_next(request)
+        return response
+
+app.add_middleware(AuthHeaderLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

@@ -1,6 +1,7 @@
 """
 Authentication and authorization for admin panel.
 """
+import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
@@ -41,7 +42,26 @@ def set_admin_password(new_password: str) -> bool:
         return False
 
 # JWT settings
-SECRET_KEY = secrets.token_urlsafe(32)  # Generate a random secret key
+# SECRET_KEY must be persistent - read from env or file, otherwise tokens become invalid on restart
+SECRET_KEY_FILE = Path("jwt_secret.key")
+
+def get_or_create_secret_key() -> str:
+    """Get secret key from file or create a new one"""
+    if SECRET_KEY_FILE.exists():
+        try:
+            return SECRET_KEY_FILE.read_text().strip()
+        except Exception:
+            pass
+    # Generate new secret key
+    secret_key = secrets.token_urlsafe(32)
+    try:
+        SECRET_KEY_FILE.write_text(secret_key)
+        SECRET_KEY_FILE.chmod(0o600)  # Restrict permissions
+    except Exception:
+        pass  # Continue even if we can't write the file
+    return secret_key
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY") or get_or_create_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30 * 24 * 60  # 30 days
 
