@@ -112,6 +112,8 @@ api.interceptors.response.use(
     const fullUrl = error.config ? `${error.config.baseURL || api.defaults.baseURL}${error.config.url}` : 'N/A'
     
     if (error.response?.status === 401) {
+      const token = localStorage.getItem('token')
+      const authHeader = error.config?.headers?.Authorization
       console.error('[API 401 Error]', {
         url: fullUrl,
         endpoint: error.config?.url,
@@ -120,10 +122,17 @@ api.interceptors.response.use(
         statusText: error.response.statusText,
         responseData: error.response?.data,
         isAuthRequest,
-        requestHeaders: error.config?.headers,
-        authorizationHeaderSent: !!error.config?.headers?.Authorization,
-        authorizationHeaderValue: error.config?.headers?.Authorization ? `${error.config.headers.Authorization.substring(0, 30)}...` : 'NOT SENT',
-        tokenInStorage: !!localStorage.getItem('token'),
+        requestHeaders: {
+          ...error.config?.headers,
+          Authorization: authHeader ? `${authHeader.substring(0, 30)}...` : 'MISSING'
+        },
+        authorizationHeaderSent: !!authHeader,
+        authorizationHeaderValue: authHeader ? `${authHeader.substring(0, 50)}...` : 'NOT SENT',
+        tokenInStorage: !!token,
+        tokenPreview: token && token !== 'undefined' ? `${token.substring(0, 20)}...` : token,
+        axiosDefaultsAuth: (typeof api.defaults.headers.common['Authorization'] === 'string' && api.defaults.headers.common['Authorization']) 
+          ? `${api.defaults.headers.common['Authorization'].substring(0, 30)}...` 
+          : 'NOT SET',
       })
       
       // Only redirect if we're not already on the login page
