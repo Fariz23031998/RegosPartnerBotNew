@@ -56,6 +56,7 @@ api.interceptors.request.use(
           endpoint: config.url,
           hasToken: true,
           tokenPreview: token.length > 20 ? `${token.substring(0, 20)}...` : token.substring(0, token.length),
+          authorizationHeader: config.headers.Authorization ? `${config.headers.Authorization.substring(0, 30)}...` : 'MISSING',
         })
       }
     } else {
@@ -119,6 +120,10 @@ api.interceptors.response.use(
         statusText: error.response.statusText,
         responseData: error.response?.data,
         isAuthRequest,
+        requestHeaders: error.config?.headers,
+        authorizationHeaderSent: !!error.config?.headers?.Authorization,
+        authorizationHeaderValue: error.config?.headers?.Authorization ? `${error.config.headers.Authorization.substring(0, 30)}...` : 'NOT SENT',
+        tokenInStorage: !!localStorage.getItem('token'),
       })
       
       // Only redirect if we're not already on the login page
