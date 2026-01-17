@@ -30,7 +30,18 @@ if (typeof window !== 'undefined') {
 // Request interceptor to add token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    // First check axios defaults, then localStorage (to avoid race conditions)
+    const defaultAuth = api.defaults.headers.common['Authorization']
+    const tokenFromStorage = localStorage.getItem('token')
+    
+    // Prefer token from axios defaults if available, otherwise use localStorage
+    let token: string | null = null
+    if (typeof defaultAuth === 'string' && defaultAuth.startsWith('Bearer ')) {
+      token = defaultAuth.replace('Bearer ', '')
+    } else if (tokenFromStorage && tokenFromStorage !== 'undefined' && tokenFromStorage.trim() !== '') {
+      token = tokenFromStorage
+    }
+    
     const fullUrl = `${config.baseURL || api.defaults.baseURL}${config.url}`
     const isAuthRequest = config.url?.includes('/auth/')
     

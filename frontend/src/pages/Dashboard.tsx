@@ -16,7 +16,7 @@ interface DashboardStats {
 }
 
 function Dashboard() {
-  const { logout, username } = useAuth()
+  const { logout, username, isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState<'users' | 'bots' | 'bot-settings' | 'bot-schedules' | 'change-password'>('users')
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
@@ -27,21 +27,36 @@ function Dashboard() {
   })
 
   useEffect(() => {
-    fetchStats()
-  }, [])
+    // Only fetch stats after authentication is confirmed
+    if (isAuthenticated) {
+      // Small delay to ensure token is fully set in axios
+      const timer = setTimeout(() => {
+        fetchStats()
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isAuthenticated])
 
   const fetchStats = async () => {
     // Ensure token is set before making requests
     const token = localStorage.getItem('token')
     if (token && token !== 'undefined' && token.trim() !== '') {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      console.log('[Dashboard] Token set in axios defaults before fetchStats')
+      console.log('[Dashboard] Token set in axios defaults before fetchStats', {
+        tokenPreview: token.substring(0, 20) + '...',
+        tokenLength: token.length,
+      })
+      
+      // Small delay to ensure axios defaults are fully propagated
+      await new Promise(resolve => setTimeout(resolve, 50))
     } else {
       console.warn('[Dashboard] No valid token found before fetchStats')
+      return // Don't make requests without a token
     }
 
     try {
       // Make requests with individual error handling to prevent one failure from affecting others
+      // Add a small delay between requests to avoid race conditions
       const [usersRes, botsRes, registeredBotsRes] = await Promise.all([
         api.get('/users').catch(err => {
           console.error('[Dashboard] Error fetching users:', err)
