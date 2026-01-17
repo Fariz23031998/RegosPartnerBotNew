@@ -1,7 +1,7 @@
 /**
  * API utility for making requests with the correct base path
  */
-const API_BASE = '/regos-partner-bot/api'
+const API_BASE = '/api'
 
 export const apiFetch = async (endpoint: string, options?: RequestInit): Promise<Response> => {
   // If endpoint already starts with http/https, use it as-is
