@@ -248,10 +248,10 @@ function BotManagement({ onUpdate }: BotManagementProps) {
           {revenueStats && (
             <div className="revenue-stats">
               <div className="revenue-stat-item">
-                <strong>Revenue:</strong> {formatCurrency(revenueStats.total_revenue, '$')} total
+                <strong>Revenue:</strong> {formatCurrency(revenueStats.total_revenue, 'sum')} total
               </div>
               <div className="revenue-stat-item">
-                {formatCurrency(revenueStats.monthly_revenue, '$')} this month
+                {formatCurrency(revenueStats.monthly_revenue, 'sum')} this month
               </div>
               <div className="revenue-stat-item">
                 <strong>Active:</strong> {formatNumber(revenueStats.active_subscriptions)} | <strong>Expired:</strong> {formatNumber(revenueStats.expired_subscriptions)}
@@ -310,7 +310,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                     </span>
                   </td>
                 )}
-                {isAdmin && <td data-label="Price">{formatCurrency(bot.subscription_price, '$')}</td>}
+                {isAdmin && <td data-label="Price">{formatCurrency(bot.subscription_price, 'sum')}</td>}
                 {isAdmin && <td data-label="Expires">{formatDate(bot.subscription_expires_at)}</td>}
                 <td data-label="Created At">{new Date(bot.created_at).toLocaleString()}</td>
                 <td data-label="Actions">
@@ -488,7 +488,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Total Amount: {formatCurrency(subscriptionModal.bot.subscription_price * subscriptionMonths, '$')}</label>
+                  <label>Total Amount: {formatCurrency(subscriptionModal.bot.subscription_price * subscriptionMonths, 'sum')}</label>
                 </div>
                 <div className="modal-actions">
                   <button
@@ -509,7 +509,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                   <label>Bot: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
                 </div>
                 <div className="form-group">
-                  <label>Monthly Subscription Price ($) *</label>
+                  <label>Monthly Subscription Price (Sum) *</label>
                   <input
                     type="number"
                     min="0"
