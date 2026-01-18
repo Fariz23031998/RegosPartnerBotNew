@@ -293,16 +293,16 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                   {/* Inverted for partner view: system credit -> partner debit */}
                   {entry.credit !== 0 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">{debitLabel}:</span>
+                      <span className="balance-label">{creditLabel}:</span>
                       <span className="balance-value debit">
-                        {formatNumber(-entry.credit)}
+                        {formatNumber(entry.credit)}
                       </span>
                     </div>
                   )}
                   {/* Inverted for partner view: system debit -> partner credit */}
                   {entry.debit !== 0 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">{creditLabel}:</span>
+                      <span className="balance-label">{debitLabel}:</span>
                       <span className="balance-value credit">
                         {formatNumber(-entry.debit)}
                       </span>
