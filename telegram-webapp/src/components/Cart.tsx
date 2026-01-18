@@ -1,4 +1,6 @@
 import { useCart } from '../contexts/CartContext'
+import { formatNumber } from '../utils/formatNumber'
+import { FaImages } from 'react-icons/fa'
 import './Cart.css'
 
 interface CartProps {
@@ -16,7 +18,7 @@ function Cart({ onCheckout, onClose }: CartProps) {
   } = useCart()
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU').format(price)
+    return formatNumber(price)
   }
 
   const handleCheckout = () => {
@@ -59,7 +61,7 @@ function Cart({ onCheckout, onClose }: CartProps) {
                 />
               ) : (
                 <div className="cart-item-image-placeholder">
-                  <span>📦</span>
+                  <FaImages />
                 </div>
               )}
               <div className="cart-item-info">

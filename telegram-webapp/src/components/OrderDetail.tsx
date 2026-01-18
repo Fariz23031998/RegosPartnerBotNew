@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { FaArrowLeft } from 'react-icons/fa'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import { apiFetch } from '../utils/api'
+import { formatNumber } from '../utils/formatNumber'
 import './OrderDetail.css'
 
 interface OrderDetailProps {
@@ -59,7 +61,19 @@ function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetail
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU').format(price)
+    return formatNumber(price)
+  }
+
+  // Calculate total from operations if order.total is not available
+  const calculateTotal = () => {
+    if (order?.total) {
+      return order.total
+    }
+    // Calculate from operations
+    return operations.reduce((sum, op) => {
+      const amount = op.amount || (op.quantity || 0) * (op.price || 0)
+      return sum + amount
+    }, 0)
   }
 
   if (isLoading) {
@@ -78,9 +92,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetail
     <div className="order-detail">
       <div className="order-detail-header">
         <button className="back-button-icon" onClick={onBack} aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <FaArrowLeft />
         </button>
         <h2>Заказ №{order.code || order.id}</h2>
       </div>
@@ -125,41 +137,43 @@ function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetail
         <h3>Товары в заказе</h3>
         {operations.length > 0 ? (
           <>
-            <div className="operations-table">
-              <div className="operations-header">
-                <div>Товар</div>
-                <div>Кол-во</div>
-                <div>Цена</div>
-                <div>Сумма</div>
-              </div>
-              {operations.map((op, index) => (
-                <div key={op.id || index} className="operation-row">
-                  <div className="operation-item-name">
-                    {op.item?.name || op.item?.fullname || `Товар #${op.item_id || op.id || index + 1}`}
-                    {op.item?.code && (
-                      <span className="operation-item-code"> (Код: {op.item.code})</span>
-                    )}
+            <div className="operations-list">
+              {operations.map((op, index) => {
+                const amount = op.amount || (op.quantity || 0) * (op.price || 0)
+                return (
+                  <div key={op.id || index} className="operation-card">
+                    <div className="operation-item-header">
+                      <div className="operation-item-name">
+                        {op.item?.name || op.item?.fullname || `Товар #${op.item_id || op.id || index + 1}`}
+                      </div>
+                      {op.item?.code && (
+                        <div className="operation-item-code">Код: {op.item.code}</div>
+                      )}
+                    </div>
+                    <div className="operation-details">
+                      <div className="operation-detail-row">
+                        <span className="operation-detail-label">Количество:</span>
+                        <span className="operation-detail-value">{op.quantity || 0}</span>
+                      </div>
+                      <div className="operation-detail-row">
+                        <span className="operation-detail-label">Цена:</span>
+                        <span className="operation-detail-value">{formatPrice(op.price || 0)}</span>
+                      </div>
+                      <div className="operation-detail-row operation-total-row">
+                        <span className="operation-detail-label">Сумма:</span>
+                        <span className="operation-detail-value operation-amount">{formatPrice(amount)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="operation-quantity">
-                    {op.quantity || 0}
-                  </div>
-                  <div className="operation-price">
-                    {formatPrice(op.price || 0)}
-                  </div>
-                  <div className="operation-amount">
-                    {formatPrice(op.amount || (op.quantity || 0) * (op.price || 0))}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-            {order.total && (
-              <div className="order-total">
-                <span className="total-label">Итого к оплате:</span>
-                <span className="total-value">
-                  {formatPrice(order.total)} {order.currency?.name || 'сум'}
-                </span>
-              </div>
-            )}
+            <div className="order-total">
+              <span className="total-label">Итого к оплате:</span>
+              <span className="total-value">
+                {formatPrice(calculateTotal())} {order.currency?.name || 'сум'}
+              </span>
+            </div>
           </>
         ) : (
           <div className="no-operations">

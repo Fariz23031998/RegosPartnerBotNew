@@ -3,6 +3,7 @@ REGOS WholeSale document operations.
 """
 import logging
 from typing import Optional, Dict, Any, List
+from core.number_format import format_number
 from regos.api import regos_async_api_request
 from core.partner_terminology import get_partner_document_type_name
 from config import APP_NAME
@@ -242,7 +243,7 @@ def format_wholesale_receipt(
         # Format item line with quantity × cost/price = total on single line
         item_line = f"{idx}. *{item_name}*"
         message_parts.append(item_line)
-        message_parts.append(f"   {quantity} × {cost_or_price:,.2f} = {item_total:,.2f}")
+        message_parts.append(f"   {format_number(quantity)} × {format_number(cost_or_price)} = {format_number(item_total)}")
         
         if description:
             message_parts.append(f"   Примечание: {description}")
@@ -254,7 +255,7 @@ def format_wholesale_receipt(
     message_parts.extend([
         "─" * 20,
         f"📊 Всего товаров: {total_items}",
-        f"💵 *Итого к оплате: {total_to_pay:,.2f}*"
+        f"💵 *Итого к оплате: {format_number(total_to_pay)}*"
     ])
     
     return "\n".join(message_parts)

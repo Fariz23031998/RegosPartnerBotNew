@@ -14,10 +14,11 @@ from apscheduler.triggers.date import DateTrigger
 
 from database import get_db
 from database.repositories import BotRepository, BotScheduleRepository
+from bot_manager import bot_manager
 from regos.api import regos_async_api_request
 from regos.document_excel import generate_partner_balance_excel
-from bot_manager import bot_manager
 from core.utils import convert_to_unix_timestamp
+from core.number_format import format_number
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,15 @@ class ScheduleExecutor:
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
         logger.info("APScheduler started")
+        
+        # Add periodic task to check expired subscriptions (runs every hour)
+        self.scheduler.add_job(
+            self._check_expired_subscriptions,
+            trigger=CronTrigger(minute=0),  # Run at the top of every hour
+            id="check_expired_subscriptions",
+            replace_existing=True
+        )
+        logger.info("Added periodic task to check expired subscriptions")
         
         # Load all schedules from database
         await self._load_schedules()
@@ -488,7 +498,7 @@ class ScheduleExecutor:
             ]
             
             for firm_name, currency_name, balance in negative_balances:
-                message_lines.append(f"🏢 {firm_name} ({currency_name}): {balance:,.2f}")
+                message_lines.append(f"🏢 {firm_name} ({currency_name}): {format_number(balance)}")
             
             message_lines.extend([
                 "",
@@ -530,6 +540,46 @@ class ScheduleExecutor:
         
         except Exception as e:
             logger.error(f"Error sending partner balance to {partner_id}: {e}", exc_info=True)
+    
+    async def _check_expired_subscriptions(self):
+        """Check and deactivate expired subscriptions"""
+        try:
+            logger.info("Checking for expired subscriptions...")
+            db = await get_db()
+            async with db.async_session_maker() as session:
+                bot_repo = BotRepository(session)
+                
+                expired_bots = await bot_repo.get_bots_with_expired_subscriptions()
+                
+                if not expired_bots:
+                    logger.info("No expired subscriptions found")
+                    return
+                
+                logger.info(f"Found {len(expired_bots)} bot(s) with expired subscriptions")
+                
+                deactivated_count = 0
+                for bot in expired_bots:
+                    # Update subscription status
+                    await bot_repo.update(
+                        bot_id=bot.bot_id,
+                        subscription_active=False
+                    )
+                    
+                    # Unregister bot if it was active
+                    if bot.is_active:
+                        try:
+                            await bot_manager.unregister_bot(bot.telegram_token)
+                            logger.info(f"Unregistered bot {bot.bot_id} due to expired subscription")
+                        except Exception as e:
+                            logger.warning(f"Failed to unregister expired bot {bot.bot_id}: {e}")
+                    
+                    deactivated_count += 1
+                    logger.info(f"Deactivated expired subscription for bot {bot.bot_id} ({bot.bot_name or 'Unknown'})")
+                
+                logger.info(f"Successfully deactivated {deactivated_count} expired subscription(s)")
+        
+        except Exception as e:
+            logger.error(f"Error checking expired subscriptions: {e}", exc_info=True)
 
 
 # Global scheduler instance

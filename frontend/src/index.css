@@ -18,4 +18,21 @@ code {
     monospace;
 }
 
+/* Mobile touch improvements */
+button, a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Prevent text size adjustment on iOS */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Improve scrolling on mobile */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
 

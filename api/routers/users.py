@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from database.repositories import UserRepository
 from api.schemas import UserCreate, UserUpdate, UserResponse
-from auth import verify_admin
+from auth import verify_admin, verify_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -28,12 +28,12 @@ async def create_user(
     user: UserCreate,
     current_user: dict = Depends(verify_admin)
 ):
-    """Create a new user"""
+    """Create a new user (admin only)"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
             repo = UserRepository(session)
-            user_obj = await repo.create(user.username, user.email)
+            user_obj = await repo.create(user.username, user.email, user.password)
             return user_obj.to_dict()
     except Exception as e:
         logger.error(f"Error creating user: {e}")
@@ -71,9 +71,9 @@ async def get_all_users(
 async def update_user(
     user_id: int,
     user_update: UserUpdate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Update user (username and/or email)"""
+    """Update user (username, email, or password) - admin can update any user, users can only update themselves"""
     db = await get_db()
     async with db.async_session_maker() as session:
         repo = UserRepository(session)
@@ -81,10 +81,20 @@ async def update_user(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # Check permissions: users can only update themselves
+        role = current_user.get("role", "admin")
+        current_user_id = current_user.get("user_id")
+        if role == "user" and current_user_id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only update your own account"
+            )
+        
         updated_user = await repo.update(
             user_id,
             username=user_update.username,
-            email=user_update.email
+            email=user_update.email,
+            password=user_update.password
         )
         
         if not updated_user:

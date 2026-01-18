@@ -89,6 +89,8 @@
   flex-shrink: 0;
   background: #fff;
   display: flex;
+  font-size: 50px;
+  color: rgb(115, 105, 255);
   align-items: center;
   justify-content: center;
 }

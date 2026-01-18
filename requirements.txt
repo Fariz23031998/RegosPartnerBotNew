@@ -9,4 +9,5 @@ python-multipart
 openpyxl
 apscheduler
 python-dotenv
+bcrypt
 

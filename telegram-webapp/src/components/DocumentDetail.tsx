@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { FaArrowLeft } from 'react-icons/fa'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import { apiFetch } from '../utils/api'
+import { formatNumber } from '../utils/formatNumber'
 import './DocumentDetail.css'
 
 interface DocumentDetailProps {
@@ -178,9 +180,7 @@ function DocumentDetail({
       <div>
         <ErrorMessage message={error} />
         <button onClick={onBack} className="back-button-icon" aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <FaArrowLeft />
         </button>
       </div>
     )
@@ -191,9 +191,7 @@ function DocumentDetail({
       <div>
         <ErrorMessage message="Document not found" />
         <button onClick={onBack} className="back-button-icon" aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <FaArrowLeft />
         </button>
       </div>
     )
@@ -203,9 +201,7 @@ function DocumentDetail({
     <div className="document-detail">
       <div className="document-header-section">
         <button onClick={onBack} className="back-button-icon" aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <FaArrowLeft />
         </button>
         <div className="header-row">
           <h2>{getDocumentTypeLabel()}</h2>
@@ -253,10 +249,7 @@ function DocumentDetail({
             <span className="info-label">Курс обмена:</span>
             <span className="info-value">
               {typeof document.exchange_rate === 'number' 
-                ? document.exchange_rate.toLocaleString('ru-RU', { 
-                    minimumFractionDigits: 4, 
-                    maximumFractionDigits: 4 
-                  })
+                ? formatNumber(document.exchange_rate, 4)
                 : document.exchange_rate}
             </span>
           </div>
@@ -282,13 +275,7 @@ function DocumentDetail({
                   </div>
                   <div className="operation-details">
                     <div className="operation-line">
-                      {op.quantity} × {price.toLocaleString('ru-RU', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                      })} = {itemTotal.toLocaleString('ru-RU', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                      })}
+                      {formatNumber(op.quantity)} × {formatNumber(price)} = {formatNumber(itemTotal)}
                     </div>
                     {op.description && (
                       <div className="operation-description">{op.description}</div>
@@ -311,10 +298,7 @@ function DocumentDetail({
         <div className="total-row">
           <span className="total-label">Итого к оплате:</span>
           <span className="total-value total-amount">
-            {total.toLocaleString('ru-RU', { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
-            })}
+            {formatNumber(total)}
             {document.currency && (
               <span className="currency">
                 {' '}{typeof document.currency === 'object' ? document.currency.name : document.currency}
@@ -327,10 +311,7 @@ function DocumentDetail({
             <span className="total-label">Курс обмена:</span>
             <span className="total-value">
               {typeof document.exchange_rate === 'number' 
-                ? document.exchange_rate.toLocaleString('ru-RU', { 
-                    minimumFractionDigits: 4, 
-                    maximumFractionDigits: 4 
-                  })
+                ? formatNumber(document.exchange_rate, 4)
                 : document.exchange_rate}
             </span>
           </div>

@@ -6,6 +6,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   username: string | null
+  role: 'admin' | 'user' | null
+  userId: number | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -13,6 +15,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
+  const [role, setRole] = useState<'admin' | 'user' | null>(null)
+  const [userId, setUserId] = useState<number | null>(null)
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -37,10 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: response.status,
         responseData: {
           username: response.data.username,
+          role: response.data.role,
+          userId: response.data.user_id,
         },
       })
       setIsAuthenticated(true)
       setUsername(response.data.username)
+      setRole(response.data.role || 'admin')
+      setUserId(response.data.user_id || null)
     } catch (error: any) {
       console.error('[Auth] Authentication check failed', {
         url: requestUrl,
@@ -51,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       setIsAuthenticated(false)
       setUsername(null)
+      setRole(null)
+      setUserId(null)
       localStorage.removeItem('token')
       delete api.defaults.headers.common['Authorization']
     }
@@ -95,14 +105,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       localStorage.setItem('token', access_token)
       api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
-      setIsAuthenticated(true)
-      setUsername(username)
       
-      console.log('[Auth] Login completed successfully', {
-        username,
-        tokenStored: true,
-        authorizationHeaderSet: !!api.defaults.headers.common['Authorization'],
-      })
+      // Fetch user info to get role
+      try {
+        const userResponse = await api.get('/auth/me')
+        setIsAuthenticated(true)
+        setUsername(userResponse.data.username)
+        setRole(userResponse.data.role || 'admin')
+        setUserId(userResponse.data.user_id || null)
+        
+        console.log('[Auth] Login completed successfully', {
+          username: userResponse.data.username,
+          role: userResponse.data.role,
+          userId: userResponse.data.user_id,
+          tokenStored: true,
+          authorizationHeaderSet: !!api.defaults.headers.common['Authorization'],
+        })
+      } catch (error: any) {
+        // Fallback to username if /me fails
+        setIsAuthenticated(true)
+        setUsername(username)
+        setRole('admin') // Default to admin for backward compatibility
+        setUserId(null)
+        
+        console.log('[Auth] Login completed (fallback mode)', {
+          username,
+          tokenStored: true,
+          authorizationHeaderSet: !!api.defaults.headers.common['Authorization'],
+        })
+      }
     } catch (error: any) {
       console.error('[Auth] Login request failed', {
         url: requestUrl,
@@ -122,17 +153,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     console.log('[Auth] Logout initiated', {
       username,
+      role,
       hadToken: !!localStorage.getItem('token'),
     })
     localStorage.removeItem('token')
     delete api.defaults.headers.common['Authorization']
     setIsAuthenticated(false)
     setUsername(null)
+    setRole(null)
+    setUserId(null)
     console.log('[Auth] Logout completed')
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, username }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, username, role, userId }}>
       {children}
     </AuthContext.Provider>
   )

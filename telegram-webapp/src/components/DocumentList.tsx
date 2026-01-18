@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { FaArrowLeft } from 'react-icons/fa'
 import DocumentCard from './DocumentCard'
 import DocumentDetail from './DocumentDetail'
 import PartnerBalance from './PartnerBalance'
 import { apiFetch } from '../utils/api'
+import { formatNumber } from '../utils/formatNumber'
 import './DocumentList.css'
 
 interface Document {
@@ -249,14 +251,26 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
   return (
     <div className="document-list">
       {onBack && (
-        <button className="back-button-icon" onClick={onBack} aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
+        <div className="document-list-header">
+          <button className="back-button-icon" onClick={onBack} aria-label="Назад">
+            <FaArrowLeft />
+          </button>
+        </div>
       )}
       <div className="header-section">
         <div className="tabs">
+          <button
+            className={activeTab === 'wholesale' ? 'active' : ''}
+            onClick={() => setActiveTab('wholesale')}
+          >
+            Закупки
+          </button>
+          <button
+            className={activeTab === 'wholesale-return' ? 'active' : ''}
+            onClick={() => setActiveTab('wholesale-return')}
+          >
+            Возврат закупок
+          </button>
           <button
             className={activeTab === 'purchase' ? 'active' : ''}
             onClick={() => setActiveTab('purchase')}
@@ -270,30 +284,18 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
             Возврат отгрузок
           </button>
           <button
-            className={activeTab === 'wholesale' ? 'active' : ''}
-            onClick={() => setActiveTab('wholesale')}
+            className={activeTab === 'payment' ? 'active' : ''}
+            onClick={() => setActiveTab('payment')}
           >
-            Закупки
+            Платежи
           </button>
           <button
-            className={activeTab === 'wholesale-return' ? 'active' : ''}
-            onClick={() => setActiveTab('wholesale-return')}
+            className={activeTab === 'balance' ? 'active' : ''}
+            onClick={() => setActiveTab('balance')}
           >
-            Возврат закупок
+            Баланс
           </button>
-        <button
-          className={activeTab === 'payment' ? 'active' : ''}
-          onClick={() => setActiveTab('payment')}
-        >
-          Платежи
-        </button>
-        <button
-          className={activeTab === 'balance' ? 'active' : ''}
-          onClick={() => setActiveTab('balance')}
-        >
-          Баланс
-        </button>
-      </div>
+        </div>
 
         <div className="date-filter-section">
           <button
@@ -383,10 +385,7 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
                       .filter(([_, amount]) => amount !== 0)
                       .map(([currency, amount]) => (
                         <span key={currency} className="total-amount-item">
-                          {amount.toLocaleString('ru-RU', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          })} {currency}
+                          {formatNumber(amount)} {currency}
                         </span>
                       ))}
                   </div>

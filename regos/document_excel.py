@@ -67,7 +67,7 @@ def generate_document_excel(
     row = 1
     
     # Document header
-    ws.merge_cells(f'A{row}:E{row}')
+    ws.merge_cells(f'A{row}:G{row}')
     cell = ws[f'A{row}']
     cell.value = f"🧾 {doc_type_label}"
     cell.font = header_font
@@ -110,7 +110,7 @@ def generate_document_excel(
     row += 1
     
     # Operations header
-    headers = ["№", "Товар", "Количество", "Цена/Стоимость", "Сумма"]
+    headers = ["№", "Товар", "Код", "Штрихкод", "Количество", "Цена/Стоимость", "Сумма"]
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=row, column=col)
         cell.value = header
@@ -129,8 +129,12 @@ def generate_document_excel(
         item = operation.get("item", {})
         if isinstance(item, dict):
             item_name = item.get("name", "Неизвестный товар")
+            item_code = item.get("code", "")
+            item_barcode = item.get("base_barcode", "")
         else:
             item_name = str(item) if item else "Неизвестный товар"
+            item_code = ""
+            item_barcode = ""
         
         quantity = float(operation.get("quantity", 0))
         
@@ -148,6 +152,8 @@ def generate_document_excel(
         row_data = [
             idx,
             item_name,
+            item_code,
+            item_barcode,
             quantity,
             price,
             item_total
@@ -157,14 +163,14 @@ def generate_document_excel(
             cell = ws.cell(row=row, column=col)
             if col == 1:
                 cell.value = value  # Number
-            elif col == 2:
-                cell.value = value  # Item name
+            elif col in [2, 3, 4]:
+                cell.value = value  # Item name, code, barcode (text)
             else:
                 cell.value = value  # Numeric values
                 cell.number_format = '#,##0.00'
             cell.border = border
             cell.alignment = Alignment(
-                horizontal='left' if col == 2 else 'right',
+                horizontal='left' if col in [2, 3, 4] else 'right',
                 vertical='center'
             )
         
@@ -172,38 +178,48 @@ def generate_document_excel(
     
     # Add totals
     row += 1
-    ws.merge_cells(f'A{row}:C{row}')
+    ws.merge_cells(f'A{row}:D{row}')
     cell = ws[f'A{row}']
     cell.value = "Всего товаров:"
     cell.font = bold_font
     cell.alignment = Alignment(horizontal='right')
-    ws.cell(row=row, column=4).value = total_items
-    ws.cell(row=row, column=4).font = bold_font
-    ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
-    ws.cell(row=row, column=4).border = border
+    ws.cell(row=row, column=5).value = total_items
+    ws.cell(row=row, column=5).font = bold_font
+    ws.cell(row=row, column=5).alignment = Alignment(horizontal='right')
+    ws.cell(row=row, column=5).border = border
     
     row += 1
-    ws.merge_cells(f'A{row}:C{row}')
+    ws.merge_cells(f'A{row}:D{row}')
     cell = ws[f'A{row}']
     cell.value = "Итого к оплате:"
     cell.font = bold_font
     cell.font = Font(bold=True, size=12, color="0088CC")
     cell.alignment = Alignment(horizontal='right')
-    ws.cell(row=row, column=4).value = total_amount
-    ws.cell(row=row, column=4).font = Font(bold=True, size=12, color="0088CC")
-    ws.cell(row=row, column=4).number_format = '#,##0.00'
-    ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
-    ws.cell(row=row, column=4).border = border
+    ws.cell(row=row, column=6).value = total_amount
+    ws.cell(row=row, column=6).font = Font(bold=True, size=12, color="0088CC")
+    ws.cell(row=row, column=6).number_format = '#,##0.00'
+    ws.cell(row=row, column=6).alignment = Alignment(horizontal='right')
+    ws.cell(row=row, column=6).border = border
     
     # Adjust column widths
-    column_widths = [8, 40, 15, 18, 18]
+    column_widths = [8, 40, 15, 18, 15, 18, 18]
     for idx, width in enumerate(column_widths, start=1):
         ws.column_dimensions[get_column_letter(idx)].width = width
     
-    # Generate filename
+    # Generate filename - reverse the document type prefix
+    # purchase -> wholesale, wholesale -> purchase
+    # purchase-return -> wholesale-return, wholesale-return -> purchase-return
+    filename_prefix_map = {
+        "purchase": "wholesale",
+        "wholesale": "purchase",
+        "purchase-return": "wholesale-return",
+        "wholesale-return": "purchase-return"
+    }
+    reversed_type = filename_prefix_map.get(document_type, document_type)
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     doc_id = document.get("id", "unknown")
-    filename = f"{document_type}_{doc_id}_{timestamp}.xlsx"
+    filename = f"{reversed_type}_{doc_id}_{timestamp}.xlsx"
     filepath = os.path.join(output_dir, filename)
     
     # Save workbook

@@ -3,6 +3,7 @@ import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import { getInvertedDebitCreditLabels, getPartnerDocumentTypeName } from '../utils/partnerTerminology'
 import { apiFetch } from '../utils/api'
+import { formatNumber } from '../utils/formatNumber'
 import './PartnerBalance.css'
 
 interface PartnerBalanceProps {
@@ -282,10 +283,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                   <div className="balance-detail-row">
                     <span className="balance-label">Начальный остаток:</span>
                     <span className="balance-value">
-                      {entry.start_amount.toLocaleString('ru-RU', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
+                      {formatNumber(entry.start_amount)}
                     </span>
                   </div>
                   {/* Inverted for partner view: system credit -> partner debit */}
@@ -293,10 +291,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                     <div className="balance-detail-row">
                       <span className="balance-label">{debitLabel}:</span>
                       <span className="balance-value debit">
-                        +{entry.credit.toLocaleString('ru-RU', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
+                        +{formatNumber(entry.credit)}
                       </span>
                     </div>
                   )}
@@ -305,30 +300,21 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                     <div className="balance-detail-row">
                       <span className="balance-label">{creditLabel}:</span>
                       <span className="balance-value credit">
-                        -{entry.debit.toLocaleString('ru-RU', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
+                        -{formatNumber(entry.debit)}
                       </span>
                     </div>
                   )}
                   <div className="balance-detail-row total">
                     <span className="balance-label">Остаток:</span>
                     <span className={`balance-value ${remainder >= 0 ? 'positive' : 'negative'}`}>
-                      {remainder.toLocaleString('ru-RU', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
+                      {formatNumber(remainder)}
                     </span>
                   </div>
                   {entry.exchange_rate !== 1 && (
                     <div className="balance-detail-row">
                       <span className="balance-label">Курс обмена:</span>
                       <span className="balance-value">
-                        {entry.exchange_rate.toLocaleString('ru-RU', {
-                          minimumFractionDigits: 4,
-                          maximumFractionDigits: 4
-                        })}
+                        {formatNumber(entry.exchange_rate, 4)}
                       </span>
                     </div>
                   )}

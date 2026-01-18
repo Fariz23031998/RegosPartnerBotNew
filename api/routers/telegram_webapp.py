@@ -1578,6 +1578,8 @@ async def get_products(
     price_type_id: Optional[int] = Query(None, description="Price type ID (overrides bot settings)"),
     group_ids: Optional[str] = Query(None, description="Comma-separated group IDs"),
     search: Optional[str] = Query(None, description="Search query"),
+    zero_quantity: bool = Query(True, description="Include products with zero quantity"),
+    filter_type: Optional[str] = Query(None, description="Filter type: in-stock, low-stock, cheap, expensive"),
     limit: int = Query(20, description="Limit"),
     offset: int = Query(0, description="Offset"),
     bot_token: Optional[str] = Query(None, description="Bot token (optional)")
@@ -1604,10 +1606,31 @@ async def get_products(
         if not final_price_type_id and bot_settings and bot_settings.online_store_price_type_id:
             final_price_type_id = bot_settings.online_store_price_type_id
         
+        # Convert to int if they're strings (from query params)
+        if final_stock_id:
+            try:
+                final_stock_id = int(final_stock_id)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid stock_id value: {final_stock_id}")
+                final_stock_id = None
+        
+        if final_price_type_id:
+            try:
+                final_price_type_id = int(final_price_type_id)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid price_type_id value: {final_price_type_id}")
+                final_price_type_id = None
+        
         if not final_stock_id or not final_price_type_id:
+            error_detail = "Stock ID and Price Type ID must be configured in bot settings or provided as parameters"
+            if bot_settings:
+                error_detail += f". Current settings: stock_id={bot_settings.online_store_stock_id}, price_type_id={bot_settings.online_store_price_type_id}"
+            else:
+                error_detail += ". Bot settings not found for this bot."
+            logger.warning(f"Products endpoint error for bot_id={bot_id}, telegram_user_id={telegram_user_id}: {error_detail}")
             raise HTTPException(
                 status_code=400,
-                detail="Stock ID and Price Type ID must be configured in bot settings or provided as parameters"
+                detail=error_detail
             )
         
         # Build request data
@@ -1620,8 +1643,8 @@ async def get_products(
                     "direction": "ASC"
                 }
             ],
-            "zero_quantity": False,  # Only show products with quantity > 0
-            "zero_price": True,
+            "zero_quantity": zero_quantity,  # Use parameter value (default True)
+            "zero_price": False,
             "image_size": "Large",
             "limit": limit,
             "offset": offset
@@ -1635,6 +1658,48 @@ async def get_products(
         
         if search:
             request_data["search"] = search
+        
+        # Build filters array based on filter_type
+        # According to Regos API docs: https://docs.regos.uz/ru/api/other/filter
+        # Filters use: field (string), operator (Enum: Equal, Greater, Less, etc.), value (string)
+        filters = []
+        if filter_type:
+            if filter_type == "in-stock":
+                # В наличии: quantity.allowed > 0
+                filters.append({
+                    "field": "quantity.allowed",
+                    "operator": "Greater",
+                    "value": "0"
+                })
+            elif filter_type == "low-stock":
+                # Мало: quantity.allowed > 0 AND quantity.allowed <= 10
+                filters.append({
+                    "field": "quantity.allowed",
+                    "operator": "Greater",
+                    "value": "0"
+                })
+                filters.append({
+                    "field": "quantity.allowed",
+                    "operator": "LessOrEqual",
+                    "value": "10"
+                })
+            elif filter_type == "cheap":
+                # Дешевые: price < 100000
+                filters.append({
+                    "field": "price",
+                    "operator": "Less",
+                    "value": "100000"
+                })
+            elif filter_type == "expensive":
+                # Дорогие: price >= 100000
+                filters.append({
+                    "field": "price",
+                    "operator": "GreaterOrEqual",
+                    "value": "100000"
+                })
+        
+        if filters:
+            request_data["filters"] = filters
         
         # Fetch products
         response = await regos_async_api_request(
@@ -1651,19 +1716,12 @@ async def get_products(
         if not isinstance(result, list):
             result = [result] if result else []
         
-        # Filter products with quantity > 0
-        filtered_products = []
-        for item_data in result:
-            quantity = item_data.get("quantity", {})
-            common_quantity = quantity.get("common", 0) if isinstance(quantity, dict) else 0
-            if common_quantity > 0:
-                filtered_products.append(item_data)
-        
+        # Return all products (filtering by stock will be done on frontend if needed)
         return {
             "ok": True,
-            "products": filtered_products,
+            "products": result,
             "next_offset": response.get("next_offset", 0),
-            "total": response.get("total", len(filtered_products))
+            "total": response.get("total", len(result))
         }
             
     except HTTPException:
@@ -1798,7 +1856,13 @@ async def get_orders(
         request_data = {
             "partner_ids": [partner_id],
             "status_ids": [1, 2, 3],
-            "deleted_mark": False
+            "deleted_mark": False,
+            "sort_orders": [
+                {
+                "column": "Date",
+                "direction": "DESC"
+                }
+            ]
         }
         
         if start_date:
@@ -1818,13 +1882,68 @@ async def get_orders(
             timeout_seconds=30
         )
         
-        if response.get("ok"):
-            return {
-                "ok": True,
-                "orders": response.get("result", [])
-            }
-        else:
+        if not response.get("ok"):
             raise HTTPException(status_code=400, detail="Failed to fetch orders")
+        
+        orders = response.get("result", [])
+        if not isinstance(orders, list):
+            orders = [orders] if orders else []
+        
+        # Fetch operations for each order individually (API only accepts one document_id at a time)
+        # OrderFromPartnerOperation/Get accepts document_ids array but only with a single element
+        operations_by_order = {}
+        order_ids = [order.get("id") for order in orders if order.get("id")]
+        
+        if order_ids:
+            # Fetch operations for each order one by one
+            for order_id in order_ids:
+                try:
+                    ops_response = await regos_async_api_request(
+                        endpoint="OrderFromPartnerOperation/Get",
+                        request_data={"document_ids": [order_id]},
+                        token=regos_token,
+                        timeout_seconds=30
+                    )
+                    
+                    if ops_response.get("ok"):
+                        ops_result = ops_response.get("result", [])
+                        operations = ops_result if isinstance(ops_result, list) else [ops_result] if ops_result else []
+                        
+                        if operations:
+                            operations_by_order[order_id] = operations
+                except Exception as e:
+                    logger.warning(f"Failed to fetch operations for order {order_id}: {e}")
+                    continue
+        
+        # Attach operations to each order and filter to only include orders with operations
+        orders_with_ops = []
+        for order in orders:
+            order_id = order.get("id")
+            if not order_id:
+                continue
+            
+            # Try to match order_id (might be int or could be string)
+            matched_ops = None
+            if order_id in operations_by_order:
+                matched_ops = operations_by_order[order_id]
+            else:
+                # Try converting to int
+                try:
+                    order_id_int = int(order_id)
+                    if order_id_int in operations_by_order:
+                        matched_ops = operations_by_order[order_id_int]
+                except (ValueError, TypeError):
+                    pass
+            
+            # Only include orders that have operations
+            if matched_ops:
+                order["operations"] = matched_ops
+                orders_with_ops.append(order)
+        
+        return {
+            "ok": True,
+            "orders": orders_with_ops
+        }
             
     except HTTPException:
         raise
@@ -1975,15 +2094,18 @@ async def create_order(
         from datetime import datetime
         current_timestamp = int(datetime.now().timestamp())
         
-        # Build description with address/type and phone number if provided
+        # Build description with address/type and phone number
         description_parts = []
         if request.is_takeaway:
             description_parts.append("С собой")
         elif request.address:
-            description_parts.append(request.address)
+            description_parts.append(f"Адрес: {request.address}")
         
+        # Always include phone number in description
         if request.phone:
             description_parts.append(f"Телефон: {request.phone}")
+        else:
+            description_parts.append("Телефон: не указан")
         
         description = ", ".join(description_parts) if description_parts else ""
         

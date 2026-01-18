@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
+import { formatNumber, formatCurrency } from '../utils/formatNumber'
 import './BotManagement.css'
 
 interface Bot {
@@ -7,6 +9,9 @@ interface Bot {
   user_id: number
   bot_name: string | null
   is_active: boolean
+  subscription_active: boolean
+  subscription_expires_at: string | null
+  subscription_price: number
   created_at: string
 }
 
@@ -21,6 +26,8 @@ interface BotManagementProps {
 }
 
 function BotManagement({ onUpdate }: BotManagementProps) {
+  const { role, userId } = useAuth()
+  const isAdmin = role === 'admin'
   const [bots, setBots] = useState<Bot[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,27 +36,50 @@ function BotManagement({ onUpdate }: BotManagementProps) {
   const [editingBot, setEditingBot] = useState<Bot | null>(null)
   const [formData, setFormData] = useState({ user_id: 0, telegram_token: '', regos_integration_token: '', bot_name: '' })
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [subscriptionModal, setSubscriptionModal] = useState<{ show: boolean; bot: Bot | null; action: 'activate' | 'setPrice' }>({ show: false, bot: null, action: 'activate' })
+  const [subscriptionMonths, setSubscriptionMonths] = useState(1)
+  const [subscriptionPrice, setSubscriptionPrice] = useState(0)
+  const [revenueStats, setRevenueStats] = useState<{ total_revenue: number; monthly_revenue: number; active_subscriptions: number; expired_subscriptions: number } | null>(null)
 
   useEffect(() => {
     fetchData()
+    fetchRevenueStats()
   }, [])
+
+  const fetchRevenueStats = async () => {
+    if (!isAdmin) return // Only admins can see revenue stats
+    try {
+      const response = await api.get('/subscriptions/revenue')
+      setRevenueStats(response.data)
+    } catch (err: any) {
+      console.error('Failed to fetch revenue stats:', err)
+    }
+  }
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [botsResponse, usersResponse] = await Promise.all([
-        api.get('/bots'),
-        api.get('/users'),
-      ])
+      const requests: Promise<any>[] = [api.get('/bots')]
+      
+      // Only fetch users for admin
+      if (isAdmin) {
+        requests.push(api.get('/users'))
+      }
+      
+      const responses = await Promise.all(requests)
       
       // Ensure responses are arrays
-      setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
-      setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : [])
+      setBots(Array.isArray(responses[0].data) ? responses[0].data : [])
+      if (isAdmin) {
+        setUsers(Array.isArray(responses[1]?.data) ? responses[1].data : [])
+      }
       setError('')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch data')
       setBots([]) // Set empty arrays on error
-      setUsers([])
+      if (isAdmin) {
+        setUsers([])
+      }
     } finally {
       setLoading(false)
     }
@@ -59,8 +89,9 @@ function BotManagement({ onUpdate }: BotManagementProps) {
     e.preventDefault()
     try {
       setError('')
-      if (!formData.user_id) {
-        setError('Please select a user')
+      const user_id = isAdmin ? formData.user_id : (userId || 0)
+      if (!user_id) {
+        setError('User ID not found')
         return
       }
       if (!formData.telegram_token) {
@@ -68,7 +99,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
         return
       }
       await api.post('/bots', {
-        user_id: formData.user_id,
+        user_id: user_id,
         telegram_token: formData.telegram_token,
         bot_name: formData.bot_name || null,
         regos_integration_token: formData.regos_integration_token || null,
@@ -135,10 +166,52 @@ function BotManagement({ onUpdate }: BotManagementProps) {
         is_active: !bot.is_active,
       })
       fetchData()
+      fetchRevenueStats()
       onUpdate?.()
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update bot status')
     }
+  }
+
+  const handleActivateSubscription = async () => {
+    if (!subscriptionModal.bot) return
+    try {
+      setError('')
+      await api.post(`/subscriptions/bots/${subscriptionModal.bot.bot_id}/activate`, {
+        months: subscriptionMonths
+      })
+      setSubscriptionModal({ show: false, bot: null, action: 'activate' })
+      fetchData()
+      fetchRevenueStats()
+      onUpdate?.()
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to activate subscription')
+    }
+  }
+
+  const handleSetPrice = async () => {
+    if (!subscriptionModal.bot) return
+    try {
+      setError('')
+      await api.post(`/subscriptions/bots/${subscriptionModal.bot.bot_id}/set-price`, {
+        price: subscriptionPrice
+      })
+      setSubscriptionModal({ show: false, bot: null, action: 'activate' })
+      fetchData()
+      onUpdate?.()
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to set subscription price')
+    }
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString()
+  }
+
+  const isSubscriptionExpired = (bot: Bot) => {
+    if (!bot.subscription_expires_at) return false
+    return new Date(bot.subscription_expires_at) < new Date()
   }
 
   const handleDelete = async (botId: number) => {
@@ -171,13 +244,33 @@ function BotManagement({ onUpdate }: BotManagementProps) {
     <div className="bot-management">
       <div className="section-header">
         <h2>Bot Management</h2>
-        <button onClick={() => {
-          setEditingBot(null)
-          setFormData({ user_id: 0, telegram_token: '', regos_integration_token: '', bot_name: '' })
-          setShowModal(true)
-        }} className="add-button">
-          + Add Bot
-        </button>
+        <div className="header-actions-wrapper">
+          {revenueStats && (
+            <div className="revenue-stats">
+              <div className="revenue-stat-item">
+                <strong>Revenue:</strong> {formatCurrency(revenueStats.total_revenue, '$')} total
+              </div>
+              <div className="revenue-stat-item">
+                {formatCurrency(revenueStats.monthly_revenue, '$')} this month
+              </div>
+              <div className="revenue-stat-item">
+                <strong>Active:</strong> {formatNumber(revenueStats.active_subscriptions)} | <strong>Expired:</strong> {formatNumber(revenueStats.expired_subscriptions)}
+              </div>
+            </div>
+          )}
+          <button onClick={() => {
+            setEditingBot(null)
+            setFormData({ 
+              user_id: isAdmin ? 0 : (userId || 0), 
+              telegram_token: '', 
+              regos_integration_token: '', 
+              bot_name: '' 
+            })
+            setShowModal(true)
+          }} className="add-button">
+            + Add Bot
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -189,9 +282,12 @@ function BotManagement({ onUpdate }: BotManagementProps) {
           <thead>
             <tr>
               <th>ID</th>
-              <th>User</th>
+              {isAdmin && <th>User</th>}
               <th>Bot Name</th>
               <th>Status</th>
+              {isAdmin && <th>Subscription</th>}
+              {isAdmin && <th>Price</th>}
+              {isAdmin && <th>Expires</th>}
               <th>Created At</th>
               <th>Actions</th>
             </tr>
@@ -199,17 +295,50 @@ function BotManagement({ onUpdate }: BotManagementProps) {
           <tbody>
             {bots.map((bot) => (
               <tr key={bot.bot_id}>
-                <td>{bot.bot_id}</td>
-                <td>{getUserName(bot.user_id)}</td>
-                <td>{bot.bot_name || '-'}</td>
-                <td>
+                <td data-label="ID">{bot.bot_id}</td>
+                {isAdmin && <td data-label="User">{getUserName(bot.user_id)}</td>}
+                <td data-label="Bot Name">{bot.bot_name || '-'}</td>
+                <td data-label="Status">
                   <span className={`status-badge ${bot.is_active ? 'active' : 'inactive'}`}>
                     {bot.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td>{new Date(bot.created_at).toLocaleString()}</td>
-                <td>
+                {isAdmin && (
+                  <td data-label="Subscription">
+                    <span className={`status-badge ${bot.subscription_active && !isSubscriptionExpired(bot) ? 'active' : 'inactive'}`}>
+                      {bot.subscription_active && !isSubscriptionExpired(bot) ? 'Active' : isSubscriptionExpired(bot) ? 'Expired' : 'Inactive'}
+                    </span>
+                  </td>
+                )}
+                {isAdmin && <td data-label="Price">{formatCurrency(bot.subscription_price, '$')}</td>}
+                {isAdmin && <td data-label="Expires">{formatDate(bot.subscription_expires_at)}</td>}
+                <td data-label="Created At">{new Date(bot.created_at).toLocaleString()}</td>
+                <td data-label="Actions">
                   <div className="action-buttons">
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setSubscriptionModal({ show: true, bot, action: 'setPrice' })
+                            setSubscriptionPrice(bot.subscription_price)
+                          }}
+                          className="edit-button"
+                          style={{ fontSize: '12px', padding: '4px 8px' }}
+                        >
+                          Set Price
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSubscriptionModal({ show: true, bot, action: 'activate' })
+                            setSubscriptionMonths(1)
+                          }}
+                          className="activate-button"
+                          style={{ fontSize: '12px', padding: '4px 8px' }}
+                        >
+                          {bot.subscription_active && !isSubscriptionExpired(bot) ? 'Extend' : 'Activate'}
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => handleToggleActive(bot)}
                       className={`toggle-button ${bot.is_active ? 'deactivate' : 'activate'}`}
@@ -222,13 +351,15 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDelete(bot.bot_id)}
-                      disabled={deletingId === bot.bot_id}
-                      className="delete-button"
-                    >
-                      {deletingId === bot.bot_id ? 'Deleting...' : 'Delete'}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(bot.bot_id)}
+                        disabled={deletingId === bot.bot_id}
+                        className="delete-button"
+                      >
+                        {deletingId === bot.bot_id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -246,7 +377,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingBot ? 'Edit Bot' : 'Create New Bot'}</h3>
             <form onSubmit={editingBot ? handleUpdate : handleCreate}>
-              {!editingBot && (
+              {!editingBot && isAdmin && (
                 <div className="form-group">
                   <label>User *</label>
                   <select
@@ -318,6 +449,90 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {subscriptionModal.show && subscriptionModal.bot && (
+        <div className="modal-overlay" onClick={() => setSubscriptionModal({ show: false, bot: null, action: 'activate' })}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>
+              {subscriptionModal.action === 'activate' 
+                ? (subscriptionModal.bot.subscription_active && !isSubscriptionExpired(subscriptionModal.bot) 
+                    ? 'Extend Subscription' 
+                    : 'Activate Subscription')
+                : 'Set Subscription Price'}
+            </h3>
+            {subscriptionModal.action === 'activate' ? (
+              <form onSubmit={(e) => { e.preventDefault(); handleActivateSubscription() }}>
+                <div className="form-group">
+                  <label>Bot: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
+                </div>
+                <div className="form-group">
+                  <label>Current Price: {formatCurrency(subscriptionModal.bot.subscription_price, '$')}/month</label>
+                </div>
+                {subscriptionModal.bot.subscription_expires_at && !isSubscriptionExpired(subscriptionModal.bot) && (
+                  <div className="form-group">
+                    <label>Current Expiry: {formatDate(subscriptionModal.bot.subscription_expires_at)}</label>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label>Number of Months *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={subscriptionMonths}
+                    onChange={(e) => setSubscriptionMonths(parseInt(e.target.value) || 1)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Total Amount: {formatCurrency(subscriptionModal.bot.subscription_price * subscriptionMonths, '$')}</label>
+                </div>
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionModal({ show: false, bot: null, action: 'activate' })}
+                    className="cancel-button"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="submit-button">
+                    {subscriptionModal.bot.subscription_active && !isSubscriptionExpired(subscriptionModal.bot) ? 'Extend' : 'Activate'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={(e) => { e.preventDefault(); handleSetPrice() }}>
+                <div className="form-group">
+                  <label>Bot: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
+                </div>
+                <div className="form-group">
+                  <label>Monthly Subscription Price ($) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={subscriptionPrice}
+                    onChange={(e) => setSubscriptionPrice(parseFloat(e.target.value) || 0)}
+                    required
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionModal({ show: false, bot: null, action: 'activate' })}
+                    className="cancel-button"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="submit-button">
+                    Set Price
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

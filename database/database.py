@@ -45,6 +45,90 @@ class Database:
         """Create all tables"""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        
+        # Run migrations for existing tables
+        await self._migrate_subscription_fields()
+    
+    async def _migrate_subscription_fields(self):
+        """Add subscription fields to existing bots table if they don't exist"""
+        import logging
+        from sqlalchemy import text
+        logger = logging.getLogger(__name__)
+        
+        try:
+            async with self.engine.begin() as conn:
+                # Check if bots table exists first
+                table_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='bots'")
+                )
+                if not table_check.fetchone():
+                    logger.info("Bots table does not exist yet, skipping migration")
+                    return
+                
+                # Check if subscription_active column exists
+                result = await conn.execute(text("PRAGMA table_info(bots)"))
+                rows = result.fetchall()
+                columns = [row[1] for row in rows] if rows else []
+                
+                # Add subscription_active if it doesn't exist
+                if 'subscription_active' not in columns:
+                    logger.info("Adding subscription_active column to bots table")
+                    await conn.execute(
+                        text("ALTER TABLE bots ADD COLUMN subscription_active BOOLEAN NOT NULL DEFAULT 0")
+                    )
+                
+                # Add subscription_expires_at if it doesn't exist
+                if 'subscription_expires_at' not in columns:
+                    logger.info("Adding subscription_expires_at column to bots table")
+                    await conn.execute(
+                        text("ALTER TABLE bots ADD COLUMN subscription_expires_at DATETIME")
+                    )
+                
+                # Add subscription_price if it doesn't exist
+                if 'subscription_price' not in columns:
+                    logger.info("Adding subscription_price column to bots table")
+                    await conn.execute(
+                        text("ALTER TABLE bots ADD COLUMN subscription_price NUMERIC(10, 2) DEFAULT 0.0")
+                    )
+                
+                # Check if users table exists and add password_hash column
+                users_table_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                )
+                if users_table_check.fetchone():
+                    users_result = await conn.execute(text("PRAGMA table_info(users)"))
+                    users_rows = users_result.fetchall()
+                    users_columns = [row[1] for row in users_rows] if users_rows else []
+                    
+                    if 'password_hash' not in users_columns:
+                        logger.info("Adding password_hash column to users table")
+                        await conn.execute(
+                            text("ALTER TABLE users ADD COLUMN password_hash TEXT")
+                        )
+                
+                # Check if subscriptions table exists, create it if not
+                result = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='subscriptions'")
+                )
+                if not result.fetchone():
+                    logger.info("Creating subscriptions table")
+                    await conn.execute(
+                        text("""CREATE TABLE subscriptions (
+                            subscription_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                            bot_id INTEGER NOT NULL,
+                            amount NUMERIC(10, 2) NOT NULL,
+                            started_at DATETIME NOT NULL,
+                            expires_at DATETIME NOT NULL,
+                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY(bot_id) REFERENCES bots (bot_id) ON DELETE CASCADE
+                        )""")
+                    )
+                
+                logger.info("Database migration completed successfully")
+        except Exception as e:
+            logger.error(f"Error during database migration: {e}", exc_info=True)
+            # Don't raise - allow app to continue even if migration fails
+            # (columns might already exist)
     
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get async session (context manager)"""

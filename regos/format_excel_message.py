@@ -4,6 +4,7 @@ from collections import defaultdict
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
+from core.number_format import format_number
 from core.conf import translator_service
 
 
@@ -134,16 +135,16 @@ def format_partner_balance_excel(data: list, lang: str = "ru", translator=transl
             doc_type_name = translator.get(f"partner_document_type{doc_type_id}", lang)
 
             # Mark current remainder
-            remainder_label = f"{remainder:,.2f}"
+            remainder_label = format_number(remainder)
             if op is last_op:
                 remainder_label += f" ({translator.get('current', lang)})"
 
             row_data = [
                 doc_type_name,
                 code,
-                f"{exch:,.2f}" if exch != 1 else "1.00",
-                f"{debit:,.2f}" if debit != 0 else "—",
-                f"{credit:,.2f}" if credit != 0 else "—",
+                format_number(exch) if exch != 1 else "1",
+                format_number(debit) if debit != 0 else "—",
+                format_number(credit) if credit != 0 else "—",
                 remainder_label,
                 date
             ]
@@ -290,7 +291,7 @@ def format_total_excel(data: list, lang: str = "ru", translator=translator_servi
             ws.cell(row=row, column=2).border = border
             ws.cell(row=row, column=2).alignment = Alignment(horizontal='left')
 
-            ws.cell(row=row, column=3).value = f"{total_value:,.2f}"
+            ws.cell(row=row, column=3).value = format_number(total_value)
             ws.cell(row=row, column=3).border = border
             ws.cell(row=row, column=3).alignment = Alignment(horizontal='right')
 
@@ -302,7 +303,7 @@ def format_total_excel(data: list, lang: str = "ru", translator=translator_servi
         ws.cell(row=row, column=2).border = border
         ws.cell(row=row, column=2).alignment = Alignment(horizontal='left')
 
-        ws.cell(row=row, column=3).value = f"{total_currency_sum:,.2f}"
+        ws.cell(row=row, column=3).value = format_number(total_currency_sum)
         ws.cell(row=row, column=3).font = total_font
         ws.cell(row=row, column=3).border = border
         ws.cell(row=row, column=3).alignment = Alignment(horizontal='right')
@@ -342,7 +343,7 @@ def format_total_excel(data: list, lang: str = "ru", translator=translator_servi
         ws.cell(row=row, column=2).font = bold_font
         ws.cell(row=row, column=2).border = border
 
-        ws.cell(row=row, column=3).value = f"{total_in_base_currency / exchange_rate:,.2f}"
+        ws.cell(row=row, column=3).value = format_number(total_in_base_currency / exchange_rate)
         ws.cell(row=row, column=3).font = bold_font
         ws.cell(row=row, column=3).border = border
         ws.cell(row=row, column=3).alignment = Alignment(horizontal='right')

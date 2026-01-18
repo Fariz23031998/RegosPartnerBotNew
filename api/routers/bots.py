@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import get_db
 from database.repositories import BotRepository, UserRepository
 from api.schemas import BotCreate, BotUpdate, BotResponse
-from auth import verify_admin
+from auth import verify_admin, verify_user, check_bot_ownership
 from bot_manager import bot_manager
 from regos.fields import create_telegram_id_field, check_field_exists
 
@@ -19,14 +19,27 @@ router = APIRouter(prefix="/api/bots", tags=["bots"])
 @router.post("", response_model=BotResponse)
 async def create_bot(
     bot: BotCreate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Create a new bot"""
+    """Create a new bot - users can only create bots for themselves"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
             user_repo = UserRepository(session)
             bot_repo = BotRepository(session)
+            
+            role = current_user.get("role", "admin")
+            current_user_id = current_user.get("user_id")
+            
+            # Users can only create bots for themselves
+            if role == "user":
+                if not current_user_id:
+                    raise HTTPException(status_code=400, detail="User ID not found in token")
+                if bot.user_id != current_user_id:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="You can only create bots for yourself"
+                    )
             
             # Verify user exists
             user = await user_repo.get_by_id(bot.user_id)
@@ -78,27 +91,44 @@ async def create_bot(
 @router.get("/{bot_id}", response_model=BotResponse)
 async def get_bot(
     bot_id: int,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get bot by ID"""
+    """Get bot by ID - users can only get their own bots"""
     db = await get_db()
     async with db.async_session_maker() as session:
         repo = BotRepository(session)
         bot = await repo.get_by_id(bot_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
+        
+        # Check ownership
+        if not await check_bot_ownership(bot_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only access your own bots"
+            )
+        
         return bot.to_dict()
 
 
 @router.get("", response_model=List[BotResponse])
 async def get_all_bots(
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get all bots"""
+    """Get all bots - users only see their own bots"""
     db = await get_db()
     async with db.async_session_maker() as session:
         repo = BotRepository(session)
-        bots = await repo.get_all()
+        role = current_user.get("role", "admin")
+        current_user_id = current_user.get("user_id")
+        
+        if role == "admin":
+            bots = await repo.get_all()
+        else:
+            if not current_user_id:
+                raise HTTPException(status_code=400, detail="User ID not found in token")
+            bots = await repo.get_by_user(current_user_id)
+        
         return [bot.to_dict() for bot in bots]
 
 
@@ -119,9 +149,18 @@ async def get_user_bots(
 async def update_bot(
     bot_id: int,
     bot_update: BotUpdate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Update bot (name, regos token, telegram token, or status)"""
+    """Update bot (name, regos token, telegram token, or status) - users can only update their own bots"""
+    from datetime import datetime
+    
+    # Check ownership
+    if not await check_bot_ownership(bot_id, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="You can only update your own bots"
+        )
+    
     db = await get_db()
     
     # Prepare update parameters - only include fields that are explicitly set
@@ -141,6 +180,27 @@ async def update_bot(
         regos_str = (bot_update.regos_integration_token or "").strip()
         update_params["regos_integration_token"] = regos_str if regos_str else None
     if bot_update.is_active is not None:
+        # Check subscription if trying to activate
+        if bot_update.is_active:
+            async with db.async_session_maker() as session:
+                repo = BotRepository(session)
+                bot_obj = await repo.get_by_id(bot_id)
+                if not bot_obj:
+                    raise HTTPException(status_code=404, detail="Bot not found")
+                
+                # Check if subscription is active and not expired
+                if not bot_obj.subscription_active:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot activate bot: subscription is not active. Please contact admin to activate subscription."
+                    )
+                
+                if bot_obj.subscription_expires_at and bot_obj.subscription_expires_at <= datetime.utcnow():
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot activate bot: subscription has expired. Please contact admin to renew subscription."
+                    )
+        
         update_params["is_active"] = bot_update.is_active
     
     async with db.async_session_maker() as session:
@@ -190,7 +250,7 @@ async def delete_bot(
     bot_id: int,
     current_user: dict = Depends(verify_admin)
 ):
-    """Delete a bot"""
+    """Delete a bot - admin only"""
     db = await get_db()
     async with db.async_session_maker() as session:
         repo = BotRepository(session)

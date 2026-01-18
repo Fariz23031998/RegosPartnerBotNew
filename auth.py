@@ -1,8 +1,9 @@
 """
-Authentication and authorization for admin panel.
+Authentication and authorization for admin panel and users.
 """
 import os
 import secrets
+import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 from pathlib import Path
@@ -101,9 +102,16 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
+        user_id: Optional[int] = payload.get("user_id")
+        role: str = payload.get("role", "admin" if username == ADMIN_USERNAME else "user")
+        
         if username is None:
             raise credentials_exception
-        return {"username": username}
+        
+        result = {"username": username, "role": role}
+        if user_id is not None:
+            result["user_id"] = user_id
+        return result
     except JWTError:
         raise credentials_exception
 
@@ -119,3 +127,40 @@ def verify_admin(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     return token_data
 
 
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against a hash"""
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
+
+
+def verify_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Verify that the token belongs to a valid user (admin or regular user)"""
+    token_data = verify_token(credentials)
+    # Token data contains username and user_id (if user) or just username (if admin)
+    return token_data
+
+
+async def check_bot_ownership(bot_id: int, current_user: dict) -> bool:
+    """Check if the current user owns the bot (or is admin)"""
+    if current_user.get("role") == "admin":
+        return True
+    
+    user_id = current_user.get("user_id")
+    if not user_id:
+        return False
+    
+    from database import get_db
+    from database.repositories import BotRepository
+    
+    db = await get_db()
+    async with db.async_session_maker() as session:
+        bot_repo = BotRepository(session)
+        bot = await bot_repo.get_by_id(bot_id)
+        return bot is not None and bot.user_id == user_id

@@ -19,7 +19,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [formData, setFormData] = useState({ username: '', email: '' })
+  const [formData, setFormData] = useState({ username: '', email: '', password: '' })
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
@@ -45,10 +45,17 @@ function UserManagement({ onUpdate }: UserManagementProps) {
     e.preventDefault()
     try {
       setError('')
-      await api.post('/users', formData)
+      const payload: any = {
+        username: formData.username || null,
+        email: formData.email || null,
+      }
+      if (formData.password) {
+        payload.password = formData.password
+      }
+      await api.post('/users', payload)
       setShowModal(false)
       setEditingUser(null)
-      setFormData({ username: '', email: '' })
+      setFormData({ username: '', email: '', password: '' })
       fetchUsers()
       onUpdate?.()
     } catch (err: any) {
@@ -58,7 +65,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
-    setFormData({ username: user.username || '', email: user.email || '' })
+    setFormData({ username: user.username || '', email: user.email || '', password: '' })
     setShowModal(true)
   }
 
@@ -68,10 +75,18 @@ function UserManagement({ onUpdate }: UserManagementProps) {
     
     try {
       setError('')
-      await api.patch(`/users/${editingUser.user_id}`, formData)
+      const payload: any = {
+        username: formData.username || null,
+        email: formData.email || null,
+      }
+      // Only include password if provided
+      if (formData.password) {
+        payload.password = formData.password
+      }
+      await api.patch(`/users/${editingUser.user_id}`, payload)
       setShowModal(false)
       setEditingUser(null)
-      setFormData({ username: '', email: '' })
+      setFormData({ username: '', email: '', password: '' })
       fetchUsers()
       onUpdate?.()
     } catch (err: any) {
@@ -106,7 +121,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
         <h2>User Management</h2>
         <button onClick={() => {
           setEditingUser(null)
-          setFormData({ username: '', email: '' })
+          setFormData({ username: '', email: '', password: '' })
           setShowModal(true)
         }} className="add-button">
           + Add User
@@ -131,11 +146,11 @@ function UserManagement({ onUpdate }: UserManagementProps) {
           <tbody>
             {users.map((user) => (
               <tr key={user.user_id}>
-                <td>{user.user_id}</td>
-                <td>{user.username || '-'}</td>
-                <td>{user.email || '-'}</td>
-                <td>{new Date(user.created_at).toLocaleString()}</td>
-                <td>
+                <td data-label="ID">{user.user_id}</td>
+                <td data-label="Username">{user.username || '-'}</td>
+                <td data-label="Email">{user.email || '-'}</td>
+                <td data-label="Created At">{new Date(user.created_at).toLocaleString()}</td>
+                <td data-label="Actions">
                   <div className="action-buttons">
                     <button
                       onClick={() => handleEdit(user)}
@@ -162,7 +177,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
         <div className="modal-overlay" onClick={() => {
           setShowModal(false)
           setEditingUser(null)
-          setFormData({ username: '', email: '' })
+          setFormData({ username: '', email: '', password: '' })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingUser ? 'Edit User' : 'Create New User'}</h3>
@@ -185,13 +200,28 @@ function UserManagement({ onUpdate }: UserManagementProps) {
                   placeholder="Optional"
                 />
               </div>
+              <div className="form-group">
+                <label>Password {!editingUser && '*'}</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder={editingUser ? "Leave empty to keep current password" : "Set initial password"}
+                  required={!editingUser}
+                />
+                {editingUser && (
+                  <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+                    Enter new password to update, or leave empty to keep current password
+                  </small>
+                )}
+              </div>
               <div className="modal-actions">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false)
                     setEditingUser(null)
-                    setFormData({ username: '', email: '' })
+                    setFormData({ username: '', email: '', password: '' })
                   }}
                   className="cancel-button"
                 >

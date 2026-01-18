@@ -2,6 +2,7 @@
 Bot repository for database operations.
 """
 from typing import Optional, List
+from datetime import datetime
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,9 +57,27 @@ class BotRepository:
         return list(result.scalars().all())
     
     async def get_all_active(self) -> List[Bot]:
-        """Get all active bots"""
+        """Get all active bots (both is_active and subscription_active must be True, and subscription not expired)"""
+        from datetime import datetime
+        now = datetime.utcnow()
         result = await self.session.execute(
-            select(Bot).where(Bot.is_active == True)
+            select(Bot).where(
+                Bot.is_active == True,
+                Bot.subscription_active == True,
+                (Bot.subscription_expires_at.is_(None)) | (Bot.subscription_expires_at > now)
+            )
+        )
+        return list(result.scalars().all())
+    
+    async def get_bots_with_expired_subscriptions(self) -> List[Bot]:
+        """Get all bots with expired subscriptions"""
+        from datetime import datetime
+        now = datetime.utcnow()
+        result = await self.session.execute(
+            select(Bot).where(
+                Bot.subscription_active == True,
+                Bot.subscription_expires_at < now
+            )
         )
         return list(result.scalars().all())
     
@@ -73,7 +92,10 @@ class BotRepository:
         telegram_token: Optional[str] = None,
         bot_name: Optional[str] = None,
         regos_integration_token: Optional[str] = None,
-        is_active: Optional[bool] = None
+        is_active: Optional[bool] = None,
+        subscription_active: Optional[bool] = None,
+        subscription_expires_at: Optional[datetime] = None,
+        subscription_price: Optional[float] = None
     ) -> Optional[Bot]:
         """Update bot"""
         update_values = {}
@@ -85,6 +107,12 @@ class BotRepository:
             update_values["regos_integration_token"] = regos_integration_token
         if is_active is not None:
             update_values["is_active"] = is_active
+        if subscription_active is not None:
+            update_values["subscription_active"] = subscription_active
+        if subscription_expires_at is not None:
+            update_values["subscription_expires_at"] = subscription_expires_at
+        if subscription_price is not None:
+            update_values["subscription_price"] = subscription_price
         
         if update_values:
             await self.session.execute(

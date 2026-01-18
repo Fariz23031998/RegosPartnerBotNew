@@ -1,6 +1,20 @@
 .document-list {
-  padding: 16px;
+  padding-left: 0px;
   position: relative;
+}
+
+.document-list-header {
+  position: fixed;
+  background: none !important;
+  top: 8px;
+  z-index: 1000;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  width: 100%;
+  pointer-events: none; 
 }
 
 .header-section {
@@ -10,9 +24,13 @@
 .tabs {
   display: flex;
   gap: 8px;
+  margin-left: 30px;
   margin-bottom: 12px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  z-index: 2000;
+  position: relative; 
+  transform: translateZ(0); 
 }
 
 .tabs button {

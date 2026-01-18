@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { FaArrowLeft } from 'react-icons/fa'
 import { useCart } from '../contexts/CartContext'
 import { apiFetch } from '../utils/api'
+import { formatNumber } from '../utils/formatNumber'
 import './Checkout.css'
 
 interface CheckoutProps {
@@ -19,7 +21,7 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
   const [error, setError] = useState<string | null>(null)
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU').format(price)
+    return formatNumber(price)
   }
 
   const handleComplete = async () => {
@@ -28,6 +30,20 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
     // Validate required fields
     if (!isTakeaway && !address.trim()) {
       setError('Пожалуйста, введите адрес доставки')
+      return
+    }
+
+    // Validate that all products have quantity.allowed > 0
+    const invalidItems = cart.filter(item => {
+      if (item.quantityAllowed !== undefined) {
+        return item.quantityAllowed <= 0
+      }
+      return false
+    })
+
+    if (invalidItems.length > 0) {
+      const itemNames = invalidItems.map(item => item.name).join(', ')
+      setError(`Невозможно оформить заказ: товары "${itemNames}" отсутствуют в наличии`)
       return
     }
 
@@ -79,9 +95,7 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
     <div className="checkout">
       <div className="checkout-header">
         <button className="back-button-icon" onClick={onBack} aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <FaArrowLeft />
         </button>
         <h2>Оформление заказа</h2>
       </div>

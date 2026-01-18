@@ -17,7 +17,7 @@ import uvicorn
 from database import get_db, init_db, close_db
 from database.repositories import BotRepository
 from bot_manager import bot_manager
-from api.routers import auth, users, bots, bot_settings, bot_schedules, telegram_webapp
+from api.routers import auth, users, bots, bot_settings, bot_schedules, telegram_webapp, subscriptions
 from auth import verify_admin
 from config import WEBHOOK_BASE_URL
 from regos.webhook_handler import handle_regos_webhook
@@ -124,6 +124,7 @@ app.include_router(bots.router)
 app.include_router(bot_settings.router)
 app.include_router(bot_schedules.router)
 app.include_router(telegram_webapp.router)
+app.include_router(subscriptions.router)
 
 
 # Webhook endpoint - dynamic path for each bot (public, no auth needed)

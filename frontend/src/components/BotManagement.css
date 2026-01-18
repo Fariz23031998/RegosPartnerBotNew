@@ -111,3 +111,111 @@
   /* Styles inherited from UserManagement.css */
 }
 
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .bot-management .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .bot-management .section-header > div {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .bot-management .section-header > div > div {
+    font-size: 12px;
+    margin-right: 0 !important;
+    text-align: left;
+    padding: 8px;
+    background: #f5f5f5;
+    border-radius: 5px;
+  }
+
+  .bot-management .add-button {
+    width: 100%;
+  }
+
+  .bot-management .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .bot-management .data-table thead {
+    display: none;
+  }
+
+  .bot-management .data-table tbody,
+  .bot-management .data-table tr {
+    display: block;
+  }
+
+  .bot-management .data-table tr {
+    margin-bottom: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .bot-management .data-table td {
+    display: block;
+    border: none;
+    padding: 8px 0;
+    text-align: left;
+    position: relative;
+    padding-left: 50%;
+  }
+
+  .bot-management .data-table td:before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .bot-management .action-buttons {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .bot-management .action-buttons button {
+    width: 100%;
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .bot-management .modal-content {
+    width: 95%;
+    padding: 20px;
+    max-height: 90vh;
+  }
+
+  .bot-management .modal-actions {
+    flex-direction: column;
+  }
+
+  .bot-management .modal-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .bot-management .section-header h2 {
+    font-size: 18px;
+  }
+
+  .bot-management .data-table td {
+    font-size: 14px;
+  }
+}

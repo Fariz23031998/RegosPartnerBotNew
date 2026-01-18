@@ -8,11 +8,18 @@ from pydantic import BaseModel, Field
 class UserCreate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
+
+
+class UserChangePassword(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class UserResponse(BaseModel):
@@ -41,6 +48,9 @@ class BotResponse(BaseModel):
     user_id: int
     bot_name: Optional[str]
     is_active: bool
+    subscription_active: bool
+    subscription_expires_at: Optional[str]
+    subscription_price: float
     created_at: str
 
 
@@ -94,4 +104,28 @@ class BotScheduleResponse(BaseModel):
     schedule_value: Optional[List[int]]
     created_at: str
     updated_at: str
+
+
+class SubscriptionActivate(BaseModel):
+    months: int = Field(1, ge=1, le=12, description="Number of months to activate subscription")
+
+
+class SubscriptionSetPrice(BaseModel):
+    price: float = Field(..., ge=0, description="Monthly subscription price")
+
+
+class SubscriptionResponse(BaseModel):
+    subscription_id: int
+    bot_id: int
+    amount: float
+    started_at: str
+    expires_at: str
+    created_at: str
+
+
+class RevenueStats(BaseModel):
+    total_revenue: float
+    monthly_revenue: float
+    active_subscriptions: int
+    expired_subscriptions: int
 

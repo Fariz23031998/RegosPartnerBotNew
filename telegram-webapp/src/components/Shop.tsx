@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { FaShoppingCart, FaArrowLeft, FaImages } from 'react-icons/fa'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import Cart from './Cart'
@@ -6,6 +7,7 @@ import Checkout from './Checkout'
 import OrderDetail from './OrderDetail'
 import { useCart } from '../contexts/CartContext'
 import { apiFetch } from '../utils/api'
+import { formatNumber } from '../utils/formatNumber'
 import './Shop.css'
 
 interface Product {
@@ -14,6 +16,9 @@ interface Product {
     name: string
     code: number
     image_url?: string
+    unit?: {
+      name: string
+    }
     group: {
       id: number
       name: string
@@ -22,6 +27,7 @@ interface Product {
   }
   quantity: {
     common: number
+    allowed?: number
   }
   price: number
   image_url?: string
@@ -54,19 +60,20 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
   const [hasMore, setHasMore] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { addToCart, updateQuantity, getItemQuantity, getCartItemCount } = useCart()
-  
+
   // Quick filter state
   type QuickFilter = 'all' | 'in-stock' | 'low-stock' | 'cheap' | 'expensive'
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(() => {
     const saved = localStorage.getItem('shop-quick-filter')
     return (saved as QuickFilter) || 'all'
   })
-  
+
   // Orders state
   const [orders, setOrders] = useState<any[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
@@ -87,11 +94,11 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
     }
-    
+
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery)
     }, 1000)
-    
+
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current)
@@ -145,6 +152,14 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
       if (debouncedSearchQuery) {
         url.searchParams.set('search', debouncedSearchQuery)
       }
+      // Set zero_quantity to false for "in-stock" and "low-stock" filters
+      if (quickFilter === 'in-stock' || quickFilter === 'low-stock') {
+        url.searchParams.set('zero_quantity', 'false')
+      }
+      // Pass filter_type to backend for server-side filtering
+      if (quickFilter !== 'all') {
+        url.searchParams.set('filter_type', quickFilter)
+      }
 
       const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
@@ -157,6 +172,8 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
           setProducts(prev => [...prev, ...newProducts])
         }
         setOffset(currentOffset + newProducts.length)
+        // Continue loading if there's a next_offset and we got products
+        // Note: Filtering happens client-side, so we might need to load more to fill the view
         setHasMore(data.next_offset > 0 && newProducts.length > 0)
       } else {
         setError(data.message || 'Failed to fetch products')
@@ -216,7 +233,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU').format(price)
+    return formatNumber(price)
   }
 
   // Highlight search matches in text
@@ -224,11 +241,11 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     if (!query || !query.trim()) {
       return text
     }
-    
+
     const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const regex = new RegExp(`(${escapedQuery})`, 'gi')
     const parts = text.split(regex)
-    
+
     return parts.map((part, index) => {
       // Check if this part matches the query (case-insensitive)
       if (part.toLowerCase() === query.toLowerCase()) {
@@ -238,28 +255,11 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     })
   }
 
-  // Apply quick filters to products
+  // Apply quick filters to products (now mostly handled server-side, but keep for any edge cases)
   const applyQuickFilter = (productList: Product[]) => {
-    if (quickFilter === 'all') {
-      return productList
-    }
-    
-    return productList.filter(product => {
-      switch (quickFilter) {
-        case 'in-stock':
-          return product.quantity.common > 10
-        case 'low-stock':
-          return product.quantity.common > 0 && product.quantity.common <= 10
-        case 'cheap':
-          // Assuming "cheap" means below median price - for simplicity, below 100000
-          return product.price < 100000
-        case 'expensive':
-          // Assuming "expensive" means above median price - for simplicity, above 100000
-          return product.price >= 100000
-        default:
-          return true
-      }
-    })
+    // Server-side filtering is now used, so just return the list as-is
+    // This function is kept for backward compatibility and any client-side edge case filtering
+    return productList
   }
 
   const fetchOrders = async () => {
@@ -294,6 +294,21 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
       month: '2-digit',
       day: '2-digit'
     })
+  }
+
+  // Calculate total from operations if order.total is not available
+  const calculateOrderTotal = (order: any) => {
+    if (order.total) {
+      return order.total
+    }
+    // Calculate from operations if available
+    if (order.operations && order.operations.length > 0) {
+      return order.operations.reduce((sum: number, op: any) => {
+        const amount = op.amount || (op.quantity || 0) * (op.price || 0)
+        return sum + amount
+      }, 0)
+    }
+    return 0
   }
 
   const getOrderStatus = (order: any) => {
@@ -343,9 +358,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     <div className="shop">
       <div className="shop-header">
         <button className="back-button-icon" onClick={onBack} aria-label="Назад">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <FaArrowLeft />
         </button>
         <div className="shop-tabs">
           <button
@@ -362,185 +375,221 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
           </button>
         </div>
         {activeTab === 'products' && (
-          <button
-            className="cart-icon-button"
-            onClick={() => setShowCart(true)}
-            title="Корзина"
-          >
-            🛒
-            {getCartItemCount() > 0 && (
-              <span className="cart-badge">{getCartItemCount()}</span>
+          <>
+            {!showSearch && (
+              <button
+                className="search-icon-button"
+                onClick={() => setShowSearch(true)}
+                aria-label="Поиск"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             )}
-          </button>
+            <button
+              className="cart-icon-button"
+              onClick={() => setShowCart(true)}
+              title="Корзина"
+            >
+              <FaShoppingCart />
+              {getCartItemCount() > 0 && (
+                <span className="cart-badge">{getCartItemCount()}</span>
+              )}
+            </button>
+          </>
         )}
       </div>
 
-      {activeTab === 'products' && (
-        <>
-          <div className="shop-filters sticky-filters">
-            <div className="search-box">
+      {activeTab === 'products' && showSearch && (
+        <div className="shop-filters sticky-filters">
+          <div className="search-container">
+            <div className={`search-box ${showSearch ? 'expanded' : ''}`}>
               <input
                 type="text"
                 placeholder="Поиск товаров..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
+                autoFocus
               />
-            </div>
-
-            <div className="quick-filters">
               <button
-                className={`quick-filter-chip ${quickFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setQuickFilter('all')}
+                className="search-close-button"
+                onClick={() => {
+                  setShowSearch(false)
+                  setSearchQuery('')
+                }}
+                aria-label="Закрыть поиск"
               >
-                Все
-              </button>
-              <button
-                className={`quick-filter-chip ${quickFilter === 'in-stock' ? 'active' : ''}`}
-                onClick={() => setQuickFilter('in-stock')}
-              >
-                В наличии
-              </button>
-              <button
-                className={`quick-filter-chip ${quickFilter === 'low-stock' ? 'active' : ''}`}
-                onClick={() => setQuickFilter('low-stock')}
-              >
-                Мало
-              </button>
-              <button
-                className={`quick-filter-chip ${quickFilter === 'cheap' ? 'active' : ''}`}
-                onClick={() => setQuickFilter('cheap')}
-              >
-                Дешевые
-              </button>
-              <button
-                className={`quick-filter-chip ${quickFilter === 'expensive' ? 'active' : ''}`}
-                onClick={() => setQuickFilter('expensive')}
-              >
-                Дорогие
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
             </div>
+          </div>
 
-            {groups.length > 0 && (
-              <div className="group-filter-container">
-                <button 
-                  className="group-filter-button"
-                  onClick={() => setShowGroupFilter(!showGroupFilter)}
-                >
-                  {getSelectedGroupName()}
-                  <span className="group-filter-arrow">{showGroupFilter ? '▲' : '▼'}</span>
-                </button>
-                
-                {showGroupFilter && (
-                  <div className="group-filter-dropdown">
+          <div className="quick-filters">
+            <button
+              className={`quick-filter-chip ${quickFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setQuickFilter('all')}
+            >
+              Все
+            </button>
+            <button
+              className={`quick-filter-chip ${quickFilter === 'in-stock' ? 'active' : ''}`}
+              onClick={() => setQuickFilter('in-stock')}
+            >
+              В наличии
+            </button>
+            <button
+              className={`quick-filter-chip ${quickFilter === 'low-stock' ? 'active' : ''}`}
+              onClick={() => setQuickFilter('low-stock')}
+            >
+              Мало
+            </button>
+            <button
+              className={`quick-filter-chip ${quickFilter === 'cheap' ? 'active' : ''}`}
+              onClick={() => setQuickFilter('cheap')}
+            >
+              Дешевые
+            </button>
+            <button
+              className={`quick-filter-chip ${quickFilter === 'expensive' ? 'active' : ''}`}
+              onClick={() => setQuickFilter('expensive')}
+            >
+              Дорогие
+            </button>
+          </div>
+
+          {groups.length > 0 && (
+            <div className="group-filter-container">
+              <button
+                className="group-filter-button"
+                onClick={() => setShowGroupFilter(!showGroupFilter)}
+              >
+                {getSelectedGroupName()}
+                <span className="group-filter-arrow">{showGroupFilter ? '▲' : '▼'}</span>
+              </button>
+
+              {showGroupFilter && (
+                <div className="group-filter-dropdown">
+                  <button
+                    className={`group-filter-item ${selectedGroups.length === 0 ? 'active' : ''}`}
+                    onClick={clearGroupFilter}
+                  >
+                    Все товары
+                  </button>
+                  {groups.map(group => (
                     <button
-                      className={`group-filter-item ${selectedGroups.length === 0 ? 'active' : ''}`}
-                      onClick={clearGroupFilter}
+                      key={group.id}
+                      className={`group-filter-item ${selectedGroups.includes(group.id) ? 'active' : ''}`}
+                      onClick={() => selectGroup(group.id)}
                     >
-                      Все товары
+                      {group.name}
                     </button>
-                    {groups.map(group => (
-                      <button
-                        key={group.id}
-                        className={`group-filter-item ${selectedGroups.includes(group.id) ? 'active' : ''}`}
-                        onClick={() => selectGroup(group.id)}
-                      >
-                        {group.name}
-                      </button>
-                    ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'products' && (
+        <>
+
+          {(() => {
+            const filteredProducts = applyQuickFilter(products)
+            return filteredProducts.length === 0 ? (
+              <div className="empty-products">
+                {products.length === 0 ? 'Товары не найдены' : 'Товары не найдены по выбранному фильтру'}
+              </div>
+            ) : (
+              <>
+                <div className={`products-grid ${showSearch ? 'search-active' : ''}`}>
+                  {filteredProducts.map((product) => {
+                    const itemQuantity = getItemQuantity(product.item.id)
+                    const hasImage = product.image_url || product.item.image_url
+
+                    return (
+                      <div key={product.item.id} className="product-card">
+                        <div className="product-image">
+                          {hasImage ? (
+                            <img src={product.image_url || product.item.image_url} alt={product.item.name} />
+                          ) : (
+                            <div className="product-image-placeholder">
+                              <FaImages />
+                            </div>
+                          )}
+                        </div>
+                        <div className="product-info">
+                          <div className="product-name">{highlightText(product.item.name, debouncedSearchQuery)}</div>
+                          <div className="product-details">
+                            <div className="product-price">{formatPrice(product.price)} сум</div>
+                            <div className="product-quantity">В наличии: {product.quantity.common} {product.item.unit?.name}</div>
+                            <div className="product-code">Код: {product.item.code}</div>
+                            <div className="product-group">{product.item.group.name}</div>
+                          </div>
+                          {itemQuantity === 0 ? (
+                            <button
+                              className="product-add-to-cart"
+                              onClick={() => addToCart({
+                                productId: product.item.id,
+                                name: product.item.name,
+                                price: product.price,
+                                image_url: product.image_url || product.item.image_url,
+                                code: product.item.code,
+                                group: product.item.group.name,
+                                quantityAllowed: product.quantity.allowed,
+                              })}
+                            >
+                              <FaShoppingCart />
+                            </button>
+                          ) : (
+                            <div className="product-quantity-controls">
+                              <button
+                                className="quantity-btn"
+                                onClick={() => updateQuantity(product.item.id, itemQuantity - 1)}
+                              >
+                                −
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={itemQuantity}
+                                onChange={(e) => {
+                                  const qty = parseInt(e.target.value) || 1
+                                  updateQuantity(product.item.id, qty)
+                                }}
+                                className="quantity-input"
+                              />
+                              <button
+                                className="quantity-btn"
+                                onClick={() => updateQuantity(product.item.id, itemQuantity + 1)}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {isLoadingMore && (
+                  <div className="loading-more">
+                    <Loading />
                   </div>
                 )}
-              </div>
-            )}
-          </div>
 
-          {products.length === 0 ? (
-            <div className="empty-products">
-              Товары не найдены
-            </div>
-          ) : (
-            <>
-              <div className="products-grid">
-            {applyQuickFilter(products).map((product) => {
-              const itemQuantity = getItemQuantity(product.item.id)
-              const hasImage = product.image_url || product.item.image_url
-              
-              return (
-                <div key={product.item.id} className="product-card">
-                  <div className="product-image">
-                    {hasImage ? (
-                      <img src={product.image_url || product.item.image_url} alt={product.item.name} />
-                    ) : (
-                      <div className="product-image-placeholder">
-                        <span>📦</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="product-info">
-                    <div className="product-name">{highlightText(product.item.name, debouncedSearchQuery)}</div>
-                    <div className="product-details">
-                      <div className="product-price">{formatPrice(product.price)} сум</div>
-                      <div className="product-quantity">Остаток: {product.quantity.common}</div>
-                      <div className="product-code">Код: {product.item.code}</div>
-                      <div className="product-group">{product.item.group.name}</div>
-                    </div>
-                    {itemQuantity === 0 ? (
-                      <button
-                        className="product-add-to-cart"
-                        onClick={() => addToCart({
-                          productId: product.item.id,
-                          name: product.item.name,
-                          price: product.price,
-                          image_url: product.image_url || product.item.image_url,
-                          code: product.item.code,
-                          group: product.item.group.name,
-                        })}
-                      >
-                        🛒
-                      </button>
-                    ) : (
-                      <div className="product-quantity-controls">
-                        <button
-                          className="quantity-btn"
-                          onClick={() => updateQuantity(product.item.id, itemQuantity - 1)}
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={itemQuantity}
-                          onChange={(e) => {
-                            const qty = parseInt(e.target.value) || 1
-                            updateQuantity(product.item.id, qty)
-                          }}
-                          className="quantity-input"
-                        />
-                        <button
-                          className="quantity-btn"
-                          onClick={() => updateQuantity(product.item.id, itemQuantity + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-              {isLoadingMore && (
-                <div className="loading-more">
-                  <Loading />
-                </div>
-              )}
-
-              {hasMore && !isLoadingMore && (
-                <div ref={observerTarget} className="observer-target" />
-              )}
-            </>
-          )}
+                {hasMore && !isLoadingMore && (
+                  <div ref={observerTarget} className="observer-target" />
+                )}
+              </>
+            )
+          })()}
         </>
       )}
 
@@ -550,41 +599,47 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
             <Loading />
           ) : ordersError ? (
             <ErrorMessage message={ordersError} />
-          ) : orders.length === 0 ? (
-            <div className="empty-products">
-              Заказы не найдены
-            </div>
-          ) : (
-            <div className="orders-list">
-              {orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="order-card"
-                  onClick={() => setSelectedOrder({ id: order.id })}
-                >
-                  <div className="order-header">
-                    <div className="order-code">Заказ №{order.code || order.id}</div>
-                    <div className={`order-status ${order.performed ? 'performed' : 'pending'}`}>
-                      {getOrderStatus(order)}
+          ) : (() => {
+            // Filter out empty orders (no operations)
+            const nonEmptyOrders = orders.filter(order => {
+              const operations = order.operations || []
+              return operations.length > 0
+            })
+            
+            return nonEmptyOrders.length === 0 ? (
+              <div className="empty-products">
+                Заказы не найдены
+              </div>
+            ) : (
+              <div className="orders-list">
+                {nonEmptyOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="order-card"
+                    onClick={() => setSelectedOrder({ id: order.id })}
+                  >
+                    <div className="order-header">
+                      <div className="order-code">Заказ №{order.code || order.id}</div>
+                      <div className={`order-status ${order.performed ? 'performed' : 'pending'}`}>
+                        {getOrderStatus(order)}
+                      </div>
                     </div>
-                  </div>
-                  <div className="order-date">
-                    Дата: {formatDate(order.date)}
-                  </div>
-                  {order.description && (
-                    <div className="order-description">
-                      {order.description}
+                    <div className="order-date">
+                      Дата: {formatDate(order.date)}
                     </div>
-                  )}
-                  {order.total && (
+                    {order.description && (
+                      <div className="order-description">
+                        {order.description}
+                      </div>
+                    )}
                     <div className="order-total">
-                      Итого: {formatPrice(order.total)} {order.currency?.name || 'сум'}
+                      Итого: {formatPrice(calculateOrderTotal(order))} {order.currency?.name || 'сум'}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </>
       )}
 

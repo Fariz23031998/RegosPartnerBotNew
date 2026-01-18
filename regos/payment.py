@@ -3,6 +3,7 @@ REGOS Payment operations and formatting.
 """
 import logging
 from typing import Optional, Dict, Any
+from core.number_format import format_number
 from regos.api import regos_async_api_request
 from config import APP_NAME
 
@@ -156,14 +157,14 @@ def format_payment_notification(
     ])
     
     # Add currency and amount
-    amount_line = f"💵 Сумма: {amount:,.2f}"
+    amount_line = f"💵 Сумма: {format_number(amount)}"
     if currency_name:
         amount_line += f" {currency_name}"
     message_parts.append(amount_line)
     
     # Add exchange rate only if it's not equal to 1
     if exchange_rate != 1.0:
-        message_parts.append(f"📊 Курс обмена: {exchange_rate:,.4f}")
+        message_parts.append(f"📊 Курс обмена: {format_number(exchange_rate, 4)}")
     
     # Add additional payment details if available
     description = document.get("description")

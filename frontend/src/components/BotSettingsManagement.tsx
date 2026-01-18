@@ -191,13 +191,13 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
           <tbody>
             {settings.map((setting) => (
               <tr key={setting.id}>
-                <td>{setting.id}</td>
-                <td>{getBotName(setting.bot_id)}</td>
-                <td>{setting.online_store_stock_id || '-'}</td>
-                <td>{setting.online_store_price_type_id || '-'}</td>
-                <td>{setting.online_store_currency_id}</td>
-                <td>{new Date(setting.updated_at).toLocaleString()}</td>
-                <td>
+                <td data-label="ID">{setting.id}</td>
+                <td data-label="Bot">{getBotName(setting.bot_id)}</td>
+                <td data-label="Stock ID">{setting.online_store_stock_id || '-'}</td>
+                <td data-label="Price Type ID">{setting.online_store_price_type_id || '-'}</td>
+                <td data-label="Currency ID">{setting.online_store_currency_id}</td>
+                <td data-label="Updated At">{new Date(setting.updated_at).toLocaleString()}</td>
+                <td data-label="Actions">
                   <div className="action-buttons">
                     <button
                       onClick={() => handleEdit(setting)}

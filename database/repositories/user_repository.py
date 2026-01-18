@@ -14,14 +14,25 @@ class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
     
-    async def create(self, username: Optional[str] = None, email: Optional[str] = None) -> User:
+    async def create(
+        self, 
+        username: Optional[str] = None, 
+        email: Optional[str] = None,
+        password: Optional[str] = None
+    ) -> User:
         """Create a new user"""
         # Convert empty strings to None to avoid UNIQUE constraint violations
         # SQLite treats empty strings as distinct values, so multiple empty strings violate UNIQUE
         username = username if username and username.strip() else None
         email = email if email and email.strip() else None
         
-        user = User(username=username, email=email)
+        # Hash password if provided
+        password_hash = None
+        if password:
+            from auth import hash_password
+            password_hash = hash_password(password)
+        
+        user = User(username=username, email=email, password_hash=password_hash)
         self.session.add(user)
         await self.session.commit()
         await self.session.refresh(user)
@@ -34,6 +45,20 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
     
+    async def get_by_username(self, username: str) -> Optional[User]:
+        """Get user by username"""
+        result = await self.session.execute(
+            select(User).where(User.username == username)
+        )
+        return result.scalar_one_or_none()
+    
+    async def get_by_email(self, email: str) -> Optional[User]:
+        """Get user by email"""
+        result = await self.session.execute(
+            select(User).where(User.email == email)
+        )
+        return result.scalar_one_or_none()
+    
     async def get_all(self) -> List[User]:
         """Get all users"""
         result = await self.session.execute(select(User))
@@ -43,7 +68,8 @@ class UserRepository:
         self,
         user_id: int,
         username: Optional[str] = None,
-        email: Optional[str] = None
+        email: Optional[str] = None,
+        password: Optional[str] = None
     ) -> Optional[User]:
         """Update user"""
         # Convert empty strings to None to avoid UNIQUE constraint violations
@@ -52,6 +78,9 @@ class UserRepository:
             update_values["username"] = username if username and username.strip() else None
         if email is not None:
             update_values["email"] = email if email and email.strip() else None
+        if password is not None:
+            from auth import hash_password
+            update_values["password_hash"] = hash_password(password)
         
         if update_values:
             from sqlalchemy import update as sql_update

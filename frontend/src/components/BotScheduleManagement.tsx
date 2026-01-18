@@ -270,15 +270,15 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
           <tbody>
             {schedules.map((schedule) => (
               <tr key={schedule.id}>
-                <td>{schedule.id}</td>
-                <td>{getBotName(schedule.bot_id)}</td>
-                <td>{schedule.schedule_type}</td>
-                <td>{schedule.time}</td>
-                <td>{getScheduleOptionLabel(schedule.schedule_option)}</td>
-                <td>{formatScheduleValue(schedule)}</td>
-                <td>{schedule.enabled ? 'Yes' : 'No'}</td>
-                <td>{new Date(schedule.updated_at).toLocaleString()}</td>
-                <td>
+                <td data-label="ID">{schedule.id}</td>
+                <td data-label="Bot">{getBotName(schedule.bot_id)}</td>
+                <td data-label="Schedule Type">{schedule.schedule_type}</td>
+                <td data-label="Time">{schedule.time}</td>
+                <td data-label="Schedule Option">{getScheduleOptionLabel(schedule.schedule_option)}</td>
+                <td data-label="Schedule Value">{formatScheduleValue(schedule)}</td>
+                <td data-label="Enabled">{schedule.enabled ? 'Yes' : 'No'}</td>
+                <td data-label="Updated At">{new Date(schedule.updated_at).toLocaleString()}</td>
+                <td data-label="Actions">
                   <div className="action-buttons">
                     <button
                       onClick={() => handleEdit(schedule)}

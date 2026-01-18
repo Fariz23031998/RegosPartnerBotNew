@@ -8,7 +8,7 @@ from .database import (
     init_db,
     close_db
 )
-from .models import User, Bot, BotSettings, BotSchedule
+from .models import User, Bot, BotSettings, BotSchedule, Subscription
 
 __all__ = [
     "Database",
@@ -20,4 +20,5 @@ __all__ = [
     "Bot",
     "BotSettings",
     "BotSchedule",
+    "Subscription",
 ]

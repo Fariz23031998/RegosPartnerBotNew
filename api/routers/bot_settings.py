@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import get_db
 from database.repositories import BotSettingsRepository, BotRepository
 from api.schemas import BotSettingsCreate, BotSettingsUpdate, BotSettingsResponse
-from auth import verify_admin
+from auth import verify_admin, verify_user, check_bot_ownership
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/bot-settings", tags=["bot-settings"])
@@ -17,9 +17,9 @@ router = APIRouter(prefix="/api/bot-settings", tags=["bot-settings"])
 @router.post("", response_model=BotSettingsResponse)
 async def create_bot_settings(
     settings: BotSettingsCreate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Create new bot settings"""
+    """Create new bot settings - users can only create settings for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
@@ -30,6 +30,13 @@ async def create_bot_settings(
             bot = await bot_repo.get_by_id(settings.bot_id)
             if not bot:
                 raise HTTPException(status_code=404, detail="Bot not found")
+            
+            # Check ownership
+            if not await check_bot_ownership(settings.bot_id, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only manage settings for your own bots"
+                )
             
             # Check if settings already exist for this bot
             existing = await settings_repo.get_by_bot_id(settings.bot_id)
@@ -65,14 +72,30 @@ async def create_bot_settings(
 
 @router.get("", response_model=List[BotSettingsResponse])
 async def get_all_bot_settings(
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get all bot settings"""
+    """Get all bot settings - users only see settings for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
             settings_repo = BotSettingsRepository(session)
-            all_settings = await settings_repo.get_all()
+            bot_repo = BotRepository(session)
+            role = current_user.get("role", "admin")
+            current_user_id = current_user.get("user_id")
+            
+            if role == "admin":
+                all_settings = await settings_repo.get_all()
+            else:
+                if not current_user_id:
+                    raise HTTPException(status_code=400, detail="User ID not found in token")
+                # Get all bots for user, then get settings for those bots
+                user_bots = await bot_repo.get_by_user(current_user_id)
+                bot_ids = [bot.bot_id for bot in user_bots]
+                all_settings = []
+                for bot_id in bot_ids:
+                    settings = await settings_repo.get_by_bot_id(bot_id)
+                    if settings:
+                        all_settings.append(settings)
             
             return [
                 BotSettingsResponse(
@@ -94,9 +117,9 @@ async def get_all_bot_settings(
 @router.get("/{settings_id}", response_model=BotSettingsResponse)
 async def get_bot_settings(
     settings_id: int,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get bot settings by ID"""
+    """Get bot settings by ID - users can only get settings for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
@@ -105,6 +128,13 @@ async def get_bot_settings(
             
             if not bot_settings:
                 raise HTTPException(status_code=404, detail="Bot settings not found")
+            
+            # Check ownership
+            if not await check_bot_ownership(bot_settings.bot_id, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only access settings for your own bots"
+                )
             
             return BotSettingsResponse(
                 id=bot_settings.id,
@@ -125,10 +155,17 @@ async def get_bot_settings(
 @router.get("/bot/{bot_id}", response_model=BotSettingsResponse)
 async def get_bot_settings_by_bot_id(
     bot_id: int,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get bot settings by bot ID"""
+    """Get bot settings by bot ID - users can only get settings for their own bots"""
     try:
+        # Check ownership
+        if not await check_bot_ownership(bot_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only access settings for your own bots"
+            )
+        
         db = await get_db()
         async with db.async_session_maker() as session:
             settings_repo = BotSettingsRepository(session)
@@ -157,9 +194,9 @@ async def get_bot_settings_by_bot_id(
 async def update_bot_settings(
     settings_id: int,
     settings: BotSettingsUpdate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Update bot settings"""
+    """Update bot settings - users can only update settings for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
@@ -169,6 +206,13 @@ async def update_bot_settings(
             existing = await settings_repo.get_by_id(settings_id)
             if not existing:
                 raise HTTPException(status_code=404, detail="Bot settings not found")
+            
+            # Check ownership
+            if not await check_bot_ownership(existing.bot_id, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only update settings for your own bots"
+                )
             
             # Update settings
             updated = await settings_repo.update(
@@ -201,10 +245,17 @@ async def update_bot_settings(
 async def update_bot_settings_by_bot_id(
     bot_id: int,
     settings: BotSettingsUpdate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Update bot settings by bot ID"""
+    """Update bot settings by bot ID - users can only update settings for their own bots"""
     try:
+        # Check ownership
+        if not await check_bot_ownership(bot_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only update settings for your own bots"
+            )
+        
         db = await get_db()
         async with db.async_session_maker() as session:
             settings_repo = BotSettingsRepository(session)

@@ -12,7 +12,8 @@ from core.telegram_webhook import (
     set_webhook,
     check_webhook_info,
     verify_webhook_accessible,
-    delete_webhook
+    delete_webhook,
+    set_chat_menu_button
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,10 @@ class BotManager:
                 webhook_url = f"{self.webhook_url_base}{webhook_path}"
                 if await set_webhook(token, webhook_url, bot_name or self.bots[token].get("bot_name")):
                     await check_webhook_info(token)
+                # Re-set menu button
+                base = self.webhook_url_base.rstrip('/')
+                web_app_url = f"{base}/mini-app/"
+                await set_chat_menu_button(token, web_app_url, bot_name or self.bots[token].get("bot_name"))
             return self.bots[token]
         
         # Get bot info from Telegram
@@ -66,6 +71,15 @@ class BotManager:
                 await check_webhook_info(token)
         else:
             logger.warning(f"Webhook base URL not set, bot {bot_data['bot_name']} registered but webhook not configured")
+        
+        # Set menu button to launch web app
+        if self.webhook_url_base:
+            # Construct web app URL (ensure proper path joining)
+            base = self.webhook_url_base.rstrip('/')
+            web_app_url = f"{base}/mini-app/"
+            await set_chat_menu_button(token, web_app_url, bot_data["bot_name"])
+        else:
+            logger.warning(f"Webhook base URL not set, menu button for {bot_data['bot_name']} not configured")
         
         return bot_data
     

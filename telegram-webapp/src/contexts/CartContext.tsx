@@ -8,6 +8,7 @@ export interface CartItem {
   code: number
   group: string
   quantity: number
+  quantityAllowed?: number
 }
 
 interface CartContextType {

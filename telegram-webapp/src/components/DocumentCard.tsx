@@ -1,3 +1,4 @@
+import { formatNumber } from '../utils/formatNumber'
 import './DocumentCard.css'
 
 interface DocumentCardProps {
@@ -98,19 +99,13 @@ function DocumentCard({ document, type, formatDate, onClick }: DocumentCardProps
       {getTotal() > 0 && (
         <div className="document-total">
           <div className="total-amount">
-            Сумма: {getTotal().toLocaleString('ru-RU', { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
-            })}
+            Сумма: {formatNumber(getTotal())}
             {getCurrency() && <span className="currency"> {getCurrency()}</span>}
           </div>
           {getExchangeRate() && (
             <div className="exchange-rate">
               Курс: {typeof getExchangeRate() === 'number' 
-                ? getExchangeRate().toLocaleString('ru-RU', { 
-                    minimumFractionDigits: 4, 
-                    maximumFractionDigits: 4 
-                  })
+                ? formatNumber(getExchangeRate(), 4)
                 : getExchangeRate()}
             </div>
           )}

@@ -87,4 +87,40 @@
   border: 1px solid #fcc;
 }
 
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .login-container {
+    padding: 15px;
+  }
+
+  .login-box {
+    padding: 30px 20px;
+  }
+
+  .login-box h1 {
+    font-size: 24px;
+  }
+
+  .login-box h2 {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-box {
+    padding: 25px 15px;
+  }
+
+  .login-box h1 {
+    font-size: 22px;
+  }
+
+  .login-box h2 {
+    font-size: 16px;
+  }
+
+  .form-group input {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
 

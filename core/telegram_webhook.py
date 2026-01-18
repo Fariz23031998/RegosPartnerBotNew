@@ -123,3 +123,35 @@ async def delete_webhook(token: str):
                 logger.info(f"Webhook deleted for {token[:10]}...")
         except Exception as e:
             logger.error(f"Error deleting webhook: {e}")
+
+
+async def set_chat_menu_button(token: str, web_app_url: str, bot_name: Optional[str] = None):
+    """Set the menu button for a bot to launch a Web App"""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"https://api.telegram.org/bot{token}/setChatMenuButton",
+                json={
+                    "menu_button": {
+                        "type": "web_app",
+                        "text": "Открыть приложение",
+                        "web_app": {
+                            "url": web_app_url
+                        }
+                    }
+                },
+                timeout=10.0
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("ok"):
+                    logger.info(f"Menu button set for {bot_name or token[:10]}: {web_app_url}")
+                    return True
+                else:
+                    logger.error(f"Failed to set menu button: {data.get('description')}")
+            else:
+                logger.error(f"HTTP error setting menu button: {response.status_code}")
+            return False
+        except Exception as e:
+            logger.error(f"Error setting menu button: {e}")
+            return False

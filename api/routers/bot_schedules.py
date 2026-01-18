@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from database import get_db
 from database.repositories import BotRepository, BotScheduleRepository
 from api.schemas import BotScheduleCreate, BotScheduleUpdate, BotScheduleResponse
-from auth import verify_admin
+from auth import verify_admin, verify_user, check_bot_ownership
 from scheduler import schedule_executor
 
 logger = logging.getLogger(__name__)
@@ -18,10 +18,17 @@ router = APIRouter(prefix="/api/bot-schedules", tags=["bot-schedules"])
 @router.post("", response_model=BotScheduleResponse)
 async def create_bot_schedule(
     schedule: BotScheduleCreate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Create new bot schedule"""
+    """Create new bot schedule - users can only create schedules for their own bots"""
     try:
+        # Check ownership
+        if not await check_bot_ownership(schedule.bot_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only create schedules for your own bots"
+            )
+        
         db = await get_db()
         async with db.async_session_maker() as session:
             bot_repo = BotRepository(session)
@@ -94,14 +101,29 @@ async def create_bot_schedule(
 
 @router.get("", response_model=List[BotScheduleResponse])
 async def get_all_bot_schedules(
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get all bot schedules"""
+    """Get all bot schedules - users only see schedules for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
             schedule_repo = BotScheduleRepository(session)
-            all_schedules = await schedule_repo.get_all()
+            bot_repo = BotRepository(session)
+            role = current_user.get("role", "admin")
+            current_user_id = current_user.get("user_id")
+            
+            if role == "admin":
+                all_schedules = await schedule_repo.get_all()
+            else:
+                if not current_user_id:
+                    raise HTTPException(status_code=400, detail="User ID not found in token")
+                # Get all bots for user, then get schedules for those bots
+                user_bots = await bot_repo.get_by_user(current_user_id)
+                bot_ids = [bot.bot_id for bot in user_bots]
+                all_schedules = []
+                for bot_id in bot_ids:
+                    schedules = await schedule_repo.get_by_bot_id(bot_id)
+                    all_schedules.extend(schedules)
             
             return [
                 BotScheduleResponse(
@@ -125,9 +147,9 @@ async def get_all_bot_schedules(
 @router.get("/{schedule_id}", response_model=BotScheduleResponse)
 async def get_bot_schedule(
     schedule_id: int,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get bot schedule by ID"""
+    """Get bot schedule by ID - users can only get schedules for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
@@ -136,6 +158,13 @@ async def get_bot_schedule(
             
             if not bot_schedule:
                 raise HTTPException(status_code=404, detail="Bot schedule not found")
+            
+            # Check ownership
+            if not await check_bot_ownership(bot_schedule.bot_id, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only access schedules for your own bots"
+                )
             
             return BotScheduleResponse(
                 id=bot_schedule.id,
@@ -158,10 +187,17 @@ async def get_bot_schedule(
 @router.get("/bot/{bot_id}", response_model=List[BotScheduleResponse])
 async def get_bot_schedules_by_bot_id(
     bot_id: int,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Get all bot schedules for a specific bot"""
+    """Get all bot schedules for a specific bot - users can only get schedules for their own bots"""
     try:
+        # Check ownership
+        if not await check_bot_ownership(bot_id, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only access schedules for your own bots"
+            )
+        
         db = await get_db()
         async with db.async_session_maker() as session:
             bot_repo = BotRepository(session)
@@ -199,9 +235,9 @@ async def get_bot_schedules_by_bot_id(
 async def update_bot_schedule(
     schedule_id: int,
     schedule: BotScheduleUpdate,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Update bot schedule"""
+    """Update bot schedule - users can only update schedules for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
@@ -211,6 +247,13 @@ async def update_bot_schedule(
             existing = await schedule_repo.get_by_id(schedule_id)
             if not existing:
                 raise HTTPException(status_code=404, detail="Bot schedule not found")
+            
+            # Check ownership
+            if not await check_bot_ownership(existing.bot_id, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only update schedules for your own bots"
+                )
             
             # Validate schedule_type if provided
             if schedule.schedule_type is not None and schedule.schedule_type not in ["send_partner_balance"]:
@@ -280,9 +323,9 @@ async def update_bot_schedule(
 @router.delete("/{schedule_id}")
 async def delete_bot_schedule(
     schedule_id: int,
-    current_user: dict = Depends(verify_admin)
+    current_user: dict = Depends(verify_user)
 ):
-    """Delete bot schedule"""
+    """Delete bot schedule - users can only delete schedules for their own bots"""
     try:
         db = await get_db()
         async with db.async_session_maker() as session:
@@ -292,6 +335,13 @@ async def delete_bot_schedule(
             existing = await schedule_repo.get_by_id(schedule_id)
             if not existing:
                 raise HTTPException(status_code=404, detail="Bot schedule not found")
+            
+            # Check ownership
+            if not await check_bot_ownership(existing.bot_id, current_user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only delete schedules for your own bots"
+                )
             
             deleted = await schedule_repo.delete(schedule_id)
             

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
+import { formatNumber } from '../utils/formatNumber'
 import UserManagement from '../components/UserManagement'
 import BotManagement from '../components/BotManagement'
 import BotSettingsManagement from '../components/BotSettingsManagement'
@@ -16,8 +17,10 @@ interface DashboardStats {
 }
 
 function Dashboard() {
-  const { logout, username, isAuthenticated } = useAuth()
-  const [activeTab, setActiveTab] = useState<'users' | 'bots' | 'bot-settings' | 'bot-schedules' | 'change-password'>('users')
+  const { logout, username, isAuthenticated, role } = useAuth()
+  const [activeTab, setActiveTab] = useState<'users' | 'bots' | 'bot-settings' | 'bot-schedules' | 'change-password'>(
+    role === 'admin' ? 'users' : 'bots'
+  )
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
@@ -56,27 +59,35 @@ function Dashboard() {
 
     try {
       // Make requests with individual error handling to prevent one failure from affecting others
-      // Add a small delay between requests to avoid race conditions
-      const [usersRes, botsRes, registeredBotsRes] = await Promise.all([
-        api.get('/users').catch(err => {
-          console.error('[Dashboard] Error fetching users:', err)
-          return { data: [] }
-        }),
+      // Users can only see their own bots, admins see everything
+      const requests: Promise<any>[] = [
         api.get('/bots').catch(err => {
           console.error('[Dashboard] Error fetching bots:', err)
           return { data: [] }
         }),
-        api.get('/registered-bots').catch(err => {
-          console.error('[Dashboard] Error fetching registered bots:', err)
-          return { data: {} }
-        }),
-      ])
+      ]
+      
+      // Only fetch users and registered bots for admin
+      if (role === 'admin') {
+        requests.push(
+          api.get('/users').catch(err => {
+            console.error('[Dashboard] Error fetching users:', err)
+            return { data: [] }
+          }),
+          api.get('/registered-bots').catch(err => {
+            console.error('[Dashboard] Error fetching registered bots:', err)
+            return { data: {} }
+          })
+        )
+      }
+      
+      const results = await Promise.all(requests)
       
       // Ensure responses are arrays/objects, handle errors gracefully
-      const usersData = Array.isArray(usersRes.data) ? usersRes.data : []
-      const botsData = Array.isArray(botsRes.data) ? botsRes.data : []
-      const registeredBotsData = registeredBotsRes.data && typeof registeredBotsRes.data === 'object' 
-        ? registeredBotsRes.data 
+      const botsData = Array.isArray(results[0].data) ? results[0].data : []
+      const usersData = role === 'admin' && Array.isArray(results[1]?.data) ? results[1].data : []
+      const registeredBotsData = role === 'admin' && results[2]?.data && typeof results[2].data === 'object' 
+        ? results[2].data 
         : {}
       
       const activeBotsCount = botsData.filter((b: any) => b.is_active).length
@@ -120,32 +131,38 @@ function Dashboard() {
       </header>
 
       <div className="dashboard-stats">
-        <div className="stat-card">
-          <h3>Total Users</h3>
-          <p className="stat-number">{stats.totalUsers}</p>
-        </div>
+        {role === 'admin' && (
+          <div className="stat-card">
+            <h3>Total Users</h3>
+            <p className="stat-number">{formatNumber(stats.totalUsers)}</p>
+          </div>
+        )}
         <div className="stat-card">
           <h3>Total Bots</h3>
-          <p className="stat-number">{stats.totalBots}</p>
+          <p className="stat-number">{formatNumber(stats.totalBots)}</p>
         </div>
         <div className="stat-card">
           <h3>Active Bots</h3>
-          <p className="stat-number">{stats.activeBots}</p>
+          <p className="stat-number">{formatNumber(stats.activeBots)}</p>
         </div>
-        <div className="stat-card">
-          <h3>Registered Bots</h3>
-          <p className="stat-number">{stats.registeredBots}</p>
-        </div>
+        {role === 'admin' && (
+          <div className="stat-card">
+            <h3>Registered Bots</h3>
+            <p className="stat-number">{formatNumber(stats.registeredBots)}</p>
+          </div>
+        )}
       </div>
 
       <div className="dashboard-content">
         <div className="tabs">
-          <button
-            className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            User Management
-          </button>
+          {role === 'admin' && (
+            <button
+              className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveTab('users')}
+            >
+              User Management
+            </button>
+          )}
           <button
             className={`tab-button ${activeTab === 'bots' ? 'active' : ''}`}
             onClick={() => setActiveTab('bots')}
