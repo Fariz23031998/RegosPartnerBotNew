@@ -110,7 +110,9 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
       const data = await response.json()
 
       if (data.ok) {
-        setBalance(data.balance || [])
+        // Sort by date (latest to oldest) - backend already sorts, but ensure here too
+        const sortedBalance = (data.balance || []).sort((a: BalanceEntry, b: BalanceEntry) => (b.date || 0) - (a.date || 0))
+        setBalance(sortedBalance)
       } else {
         setError('Failed to fetch balance')
       }
@@ -148,7 +150,9 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
   }
 
   const calculateRemainder = (entry: BalanceEntry) => {
-    return entry.start_amount + entry.debit - entry.credit
+    // Invert the remainder: positive value for partner = negative balance
+    const remainder = entry.start_amount + entry.debit - entry.credit
+    return -remainder
   }
 
   const handleExport = async () => {
@@ -283,7 +287,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                   <div className="balance-detail-row">
                     <span className="balance-label">Начальный остаток:</span>
                     <span className="balance-value">
-                      {formatNumber(entry.start_amount)}
+                      {formatNumber(-entry.start_amount)}
                     </span>
                   </div>
                   {/* Inverted for partner view: system credit -> partner debit */}
@@ -291,7 +295,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                     <div className="balance-detail-row">
                       <span className="balance-label">{debitLabel}:</span>
                       <span className="balance-value debit">
-                        +{formatNumber(entry.credit)}
+                        {formatNumber(-entry.credit)}
                       </span>
                     </div>
                   )}
@@ -300,7 +304,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
                     <div className="balance-detail-row">
                       <span className="balance-label">{creditLabel}:</span>
                       <span className="balance-value credit">
-                        -{formatNumber(entry.debit)}
+                        {formatNumber(-entry.debit)}
                       </span>
                     </div>
                   )}
