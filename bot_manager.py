@@ -112,7 +112,11 @@ class BotManager:
             chat_id = message.get("chat", {}).get("id")
             text = message.get("text", "").strip()
             
-            logger.info(f"Received message from chat {chat_id}: text='{text[:50] if text else 'N/A'}', has_contact={'contact' in message}")
+            logger.info(f"Received message from chat {chat_id}: text='{text[:50] if text else 'N/A'}', has_contact={'contact' in message}, message_type={message.get('message_id')}")
+            
+            if not chat_id:
+                logger.error(f"Message has no chat_id: {message}")
+                return None
             
             # Handle contact sharing first (if user shares contact)
             if "contact" in message:
@@ -144,7 +148,22 @@ class BotManager:
             # Handle /start command
             if text == "/start" or text.startswith("/start"):
                 logger.info(f"Handling /start command for chat {chat_id}")
-                return await self.handle_start_command(token, chat_id, regos_integration_token)
+                try:
+                    result = await self.handle_start_command(token, chat_id, regos_integration_token)
+                    if result:
+                        logger.info(f"Successfully handled /start command for chat {chat_id}")
+                    else:
+                        logger.warning(f"handle_start_command returned None for chat {chat_id}")
+                    return result
+                except Exception as e:
+                    logger.error(f"Error handling /start command for chat {chat_id}: {e}", exc_info=True)
+                    # Send error message to user
+                    await self.send_message(
+                        token,
+                        chat_id,
+                        "❌ Произошла ошибка при обработке команды /start. Пожалуйста, попробуйте позже или обратитесь к администратору."
+                    )
+                    return None
             
             # If user sends any other text, remind them to share contact
             if text:
@@ -278,11 +297,14 @@ class BotManager:
         regos_integration_token: Optional[str]
     ) -> Optional[dict]:
         """Handle /start command - check if user is already registered, otherwise request contact"""
+        logger.info(f"handle_start_command called: chat_id={chat_id}, has_regos_token={regos_integration_token is not None}")
+        
         # Check if user is already registered (Telegram chat ID matches partner's oked field)
         if regos_integration_token:
             try:
                 from regos.partner import search_partner_by_telegram_id
                 
+                logger.info(f"Searching for partner with Telegram chat ID: {chat_id}")
                 partner = await search_partner_by_telegram_id(
                     regos_integration_token,
                     str(chat_id)
@@ -292,6 +314,7 @@ class BotManager:
                     # User is already registered
                     partner_name = partner.get("name", "Партнер")
                     partner_id = partner.get("id")
+                    logger.info(f"Partner found: {partner_id} ({partner_name})")
                     return await self.send_message(
                         token,
                         chat_id,
@@ -300,9 +323,13 @@ class BotManager:
                         f"ID партнера: {partner_id}\n\n"
                         f"Вы будете получать уведомления через этого бота."
                     )
+                else:
+                    logger.info(f"No partner found with Telegram chat ID: {chat_id}, requesting contact")
             except Exception as e:
                 logger.error(f"Error checking if user is registered: {e}", exc_info=True)
                 # Continue with normal flow if check fails
+        else:
+            logger.warning(f"No REGOS integration token provided for bot, skipping partner check")
         
         # User is not registered, request contact
         welcome_text = (
@@ -323,12 +350,20 @@ class BotManager:
             "one_time_keyboard": True
         }
         
-        return await self.send_message(
+        logger.info(f"Sending welcome message with contact request to chat {chat_id}")
+        result = await self.send_message(
             token, 
             chat_id, 
             welcome_text,
             reply_markup=keyboard
         )
+        
+        if result:
+            logger.info(f"Successfully sent welcome message to chat {chat_id}")
+        else:
+            logger.error(f"Failed to send welcome message to chat {chat_id}")
+        
+        return result
     
     async def handle_contact_shared(
         self,
