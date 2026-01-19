@@ -95,6 +95,11 @@
   justify-content: center;
 }
 
+.cart-item-image {
+  max-width: 80px;
+  max-height: 80px;
+}
+
 .cart-item-image-placeholder {
   font-size: 32px;
 }

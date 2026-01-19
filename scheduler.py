@@ -464,7 +464,7 @@ class ScheduleExecutor:
                 credit = float(last_entry.get("credit", 0))
                 final_balance = start_amount + debit - credit
                 
-                if final_balance < 0:
+                if final_balance > 0:
                     has_negative_balance = True
                     
                     # Try to get names from entry first, then from lookup dict
@@ -498,7 +498,7 @@ class ScheduleExecutor:
             ]
             
             for firm_name, currency_name, balance in negative_balances:
-                message_lines.append(f"🏢 {firm_name} ({currency_name}): {format_number(balance)}")
+                message_lines.append(f"🏢 {firm_name} ({currency_name}): -{format_number(balance)}")
             
             message_lines.extend([
                 "",
