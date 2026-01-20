@@ -70,27 +70,6 @@ export function useProducts(
     }
   }, [searchQuery])
 
-  const fetchGroups = useCallback(async () => {
-    if (!botName) {
-      console.error('bot_name is required but not available')
-      setError('Bot name is required. Please refresh the page.')
-      return
-    }
-    
-    try {
-      const url = new URL('/telegram-webapp/product-groups', window.location.origin)
-      url.searchParams.set('telegram_user_id', telegramUserId.toString())
-      url.searchParams.set('bot_name', botName)
-      const response = await apiFetch(url.pathname + url.search)
-      const data = await response.json()
-      if (data.ok) {
-        setGroups(data.groups || [])
-      }
-    } catch (err) {
-      console.error('Error fetching groups:', err)
-    }
-  }, [telegramUserId, botName])
-
   // Fetch groups when botName becomes available
   useEffect(() => {
     if (!botName) return
