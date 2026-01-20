@@ -18,11 +18,23 @@ router = APIRouter()
 async def get_partner_info(
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get partner information"""
+    """
+    Get partner information.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own partner data.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_partner_info: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -53,11 +65,23 @@ async def get_partner_info(
 @router.get("/firms")
 async def get_firms(
     telegram_user_id: int = Query(..., description="Telegram user ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get all firms"""
+    """
+    Get all firms.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own data.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_firms: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Fetch firms
@@ -86,11 +110,23 @@ async def get_firms(
 @router.get("/currencies")
 async def get_currencies(
     telegram_user_id: int = Query(..., description="Telegram user ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get all currencies"""
+    """
+    Get all currencies.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own data.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_currencies: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Fetch currencies

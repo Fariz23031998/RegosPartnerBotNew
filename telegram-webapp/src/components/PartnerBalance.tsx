@@ -11,6 +11,7 @@ interface PartnerBalanceProps {
   partnerId: number
   startDate: string
   endDate: string
+  botName: string | null
 }
 
 interface Firm {
@@ -44,7 +45,7 @@ interface BalanceEntry {
   }
 }
 
-function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: PartnerBalanceProps) {
+function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName }: PartnerBalanceProps) {
   const [firms, setFirms] = useState<Firm[]>([])
   const [currencies, setCurrencies] = useState<Currency[]>([])
   const [selectedFirms, setSelectedFirms] = useState<number[]>([])
@@ -60,25 +61,42 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchFirmsAndCurrencies()
-  }, [telegramUserId])
+    if (botName) {
+      fetchFirmsAndCurrencies()
+    }
+  }, [telegramUserId, botName])
 
   useEffect(() => {
-    if (selectedFirms.length > 0 && selectedCurrencies.length > 0) {
+    if (botName && selectedFirms.length > 0 && selectedCurrencies.length > 0) {
       fetchBalance()
     } else {
       setBalance([])
     }
-  }, [selectedFirms, selectedCurrencies, startDate, endDate, telegramUserId, partnerId])
+  }, [selectedFirms, selectedCurrencies, startDate, endDate, telegramUserId, partnerId, botName])
 
   const fetchFirmsAndCurrencies = async () => {
+    // SECURITY: bot_name is REQUIRED
+    if (!botName) {
+      setError('Bot name is required. Please refresh the page.')
+      setIsLoading(false)
+      return
+    }
+    
     setIsLoading(true)
     setError(null)
 
     try {
+      const firmsUrl = new URL('/telegram-webapp/firms', window.location.origin)
+      firmsUrl.searchParams.set('telegram_user_id', telegramUserId.toString())
+      firmsUrl.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const currenciesUrl = new URL('/telegram-webapp/currencies', window.location.origin)
+      currenciesUrl.searchParams.set('telegram_user_id', telegramUserId.toString())
+      currenciesUrl.searchParams.set('bot_name', botName) // REQUIRED
+      
       const [firmsResponse, currenciesResponse] = await Promise.all([
-        apiFetch(`/telegram-webapp/firms?telegram_user_id=${telegramUserId}`),
-        apiFetch(`/telegram-webapp/currencies?telegram_user_id=${telegramUserId}`)
+        apiFetch(firmsUrl.pathname + firmsUrl.search),
+        apiFetch(currenciesUrl.pathname + currenciesUrl.search)
       ])
 
       const firmsData = await firmsResponse.json()
@@ -98,6 +116,13 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
   }
 
   const fetchBalance = async () => {
+    // SECURITY: bot_name is REQUIRED
+    if (!botName) {
+      setError('Bot name is required. Please refresh the page.')
+      setIsLoadingBalance(false)
+      return
+    }
+    
     setIsLoadingBalance(true)
     setError(null)
 
@@ -105,8 +130,16 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
       const firmIds = selectedFirms.join(',')
       const currencyIds = selectedCurrencies.join(',')
 
-      const url = `/telegram-webapp/partner-balance?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}&firm_ids=${firmIds}&currency_ids=${currencyIds}`
-      const response = await apiFetch(url)
+      const url = new URL('/telegram-webapp/partner-balance', window.location.origin)
+      url.searchParams.set('telegram_user_id', telegramUserId.toString())
+      url.searchParams.set('partner_id', partnerId.toString())
+      url.searchParams.set('start_date', startDate)
+      url.searchParams.set('end_date', endDate)
+      url.searchParams.set('firm_ids', firmIds)
+      url.searchParams.set('currency_ids', currencyIds)
+      url.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {
@@ -168,8 +201,23 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate }: Partn
       const firmIds = selectedFirms.join(',')
       const currencyIds = selectedCurrencies.join(',')
 
-      const url = `/telegram-webapp/partner-balance/export?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}&firm_ids=${firmIds}&currency_ids=${currencyIds}`
-      const response = await apiFetch(url, {
+      // SECURITY: bot_name is REQUIRED
+      if (!botName) {
+        setExportError('Bot name is required. Please refresh the page.')
+        setIsExporting(false)
+        return
+      }
+      
+      const url = new URL('/telegram-webapp/partner-balance/export', window.location.origin)
+      url.searchParams.set('telegram_user_id', telegramUserId.toString())
+      url.searchParams.set('partner_id', partnerId.toString())
+      url.searchParams.set('start_date', startDate)
+      url.searchParams.set('end_date', endDate)
+      url.searchParams.set('firm_ids', firmIds)
+      url.searchParams.set('currency_ids', currencyIds)
+      url.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const response = await apiFetch(url.pathname + url.search, {
         method: 'POST'
       })
       const data = await response.json()

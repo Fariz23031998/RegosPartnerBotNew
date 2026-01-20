@@ -8,11 +8,13 @@ import './Checkout.css'
 interface CheckoutProps {
   telegramUserId: number
   partnerId: number
+  botName: string | null
+  currencyName: string
   onBack: () => void
   onComplete: () => void
 }
 
-function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutProps) {
+function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, onComplete }: CheckoutProps) {
   const { cart, getCartTotal, clearCart } = useCart()
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
@@ -50,8 +52,17 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
     setIsSubmitting(true)
     setError(null)
 
+    // SECURITY: bot_name is REQUIRED
+    if (!botName) {
+      setError('Bot name is required. Please refresh the page.')
+      return
+    }
+    
     try {
-      const response = await apiFetch('/telegram-webapp/orders/create', {
+      const url = new URL('/telegram-webapp/orders/create', window.location.origin)
+      url.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const response = await apiFetch(url.pathname + url.search, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,9 +118,9 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
             <div key={item.productId} className="checkout-item">
               <div className="checkout-item-name">{item.name}</div>
               <div className="checkout-item-details">
-                <span>{item.quantity} × {formatPrice(item.price)} сум</span>
+                <span>{item.quantity} × {formatPrice(item.price)} {currencyName}</span>
                 <span className="checkout-item-total">
-                  {formatPrice(item.price * item.quantity)} сум
+                  {formatPrice(item.price * item.quantity)} {currencyName}
                 </span>
               </div>
             </div>
@@ -167,7 +178,7 @@ function Checkout({ telegramUserId, partnerId, onBack, onComplete }: CheckoutPro
           <div className="checkout-total-row">
             <span>Итого:</span>
             <span className="checkout-total-amount">
-              {formatPrice(getCartTotal())} сум
+              {formatPrice(getCartTotal())} {currencyName}
             </span>
           </div>
         </div>

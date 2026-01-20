@@ -11,6 +11,7 @@ interface DocumentDetailProps {
   documentType: 'purchase' | 'purchase-return' | 'wholesale' | 'wholesale-return'
   telegramUserId: number
   partnerId: number
+  botName: string | null
   onBack: () => void
 }
 
@@ -32,6 +33,7 @@ function DocumentDetail({
   documentType,
   telegramUserId,
   partnerId,
+  botName,
   onBack
 }: DocumentDetailProps) {
   const [document, setDocument] = useState<any>(null)
@@ -64,8 +66,19 @@ function DocumentDetail({
           break
       }
 
-      const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}`
-      const response = await apiFetch(url)
+      // SECURITY: bot_name is REQUIRED
+      if (!botName) {
+        setError('Bot name is required. Please refresh the page.')
+        setIsLoading(false)
+        return
+      }
+      
+      const url = new URL(endpoint, window.location.origin)
+      url.searchParams.set('telegram_user_id', telegramUserId.toString())
+      url.searchParams.set('partner_id', partnerId.toString())
+      url.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {
@@ -147,8 +160,19 @@ function DocumentDetail({
           break
       }
 
-      const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}`
-      const response = await apiFetch(url, {
+      // SECURITY: bot_name is REQUIRED
+      if (!botName) {
+        setExportError('Bot name is required. Please refresh the page.')
+        setIsExporting(false)
+        return
+      }
+      
+      const url = new URL(endpoint, window.location.origin)
+      url.searchParams.set('telegram_user_id', telegramUserId.toString())
+      url.searchParams.set('partner_id', partnerId.toString())
+      url.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const response = await apiFetch(url.pathname + url.search, {
         method: 'POST'
       })
       const data = await response.json()

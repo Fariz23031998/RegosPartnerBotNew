@@ -59,12 +59,14 @@ class BotSettingsCreate(BaseModel):
     online_store_stock_id: Optional[int] = None
     online_store_price_type_id: Optional[int] = None
     online_store_currency_id: int = 1
+    currency_name: Optional[str] = "сум"
 
 
 class BotSettingsUpdate(BaseModel):
     online_store_stock_id: Optional[int] = None
     online_store_price_type_id: Optional[int] = None
     online_store_currency_id: Optional[int] = None
+    currency_name: Optional[str] = None
 
 
 class BotSettingsResponse(BaseModel):
@@ -73,6 +75,7 @@ class BotSettingsResponse(BaseModel):
     online_store_stock_id: Optional[int]
     online_store_price_type_id: Optional[int]
     online_store_currency_id: int
+    currency_name: Optional[str]
     created_at: str
     updated_at: str
 

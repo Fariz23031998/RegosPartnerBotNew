@@ -83,11 +83,23 @@ async def get_partner_balance(
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     firm_ids: Optional[str] = Query(None, description="Comma-separated firm IDs"),
     currency_ids: Optional[str] = Query(None, description="Comma-separated currency IDs"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get partner balance"""
+    """
+    Get partner balance.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own balance data.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_partner_balance: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -146,11 +158,23 @@ async def export_partner_balance(
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     firm_ids: Optional[str] = Query(None, description="Comma-separated firm IDs"),
     currency_ids: Optional[str] = Query(None, description="Comma-separated currency IDs"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Generate and send Excel file for partner balance to Telegram chat"""
+    """
+    Generate and send Excel file for partner balance to Telegram chat.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own balance data.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("export_partner_balance: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         telegram_bot_token = bot_info.get("telegram_token")
         

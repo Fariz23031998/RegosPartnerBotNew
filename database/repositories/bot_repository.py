@@ -49,6 +49,13 @@ class BotRepository:
         )
         return result.scalar_one_or_none()
     
+    async def get_by_bot_name(self, bot_name: str) -> Optional[Bot]:
+        """Get bot by bot name"""
+        result = await self.session.execute(
+            select(Bot).where(Bot.bot_name == bot_name)
+        )
+        return result.scalar_one_or_none()
+    
     async def get_by_user(self, user_id: int) -> List[Bot]:
         """Get all bots for a user"""
         result = await self.session.execute(

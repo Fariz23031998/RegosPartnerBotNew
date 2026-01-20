@@ -4,11 +4,12 @@ import { FaImages } from 'react-icons/fa'
 import './Cart.css'
 
 interface CartProps {
+  currencyName: string
   onCheckout: () => void
   onClose: () => void
 }
 
-function Cart({ onCheckout, onClose }: CartProps) {
+function Cart({ currencyName, onCheckout, onClose }: CartProps) {
   const {
     cart,
     updateQuantity,
@@ -66,7 +67,7 @@ function Cart({ onCheckout, onClose }: CartProps) {
               )}
               <div className="cart-item-info">
                 <div className="cart-item-name">{item.name}</div>
-                <div className="cart-item-price">{formatPrice(item.price)} сум</div>
+                <div className="cart-item-price">{formatPrice(item.price)} {currencyName}</div>
                 <div className="cart-item-controls">
                   <button
                     className="cart-quantity-btn"
@@ -105,7 +106,7 @@ function Cart({ onCheckout, onClose }: CartProps) {
         <div className="cart-footer">
           <div className="cart-total">
             <span>Итого:</span>
-            <span className="cart-total-amount">{formatPrice(getCartTotal())} сум</span>
+            <span className="cart-total-amount">{formatPrice(getCartTotal())} {currencyName}</span>
           </div>
           <div className="cart-actions">
             <button className="cart-clear-btn" onClick={clearCart}>

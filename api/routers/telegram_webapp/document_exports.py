@@ -20,14 +20,26 @@ async def _export_document_helper(
     document_id: int,
     telegram_user_id: int,
     partner_id: int,
-    bot_token: Optional[str],
+    bot_name: Optional[str],
     doc_endpoint: str,
     ops_endpoint: str,
     doc_type: str,
     caption_template: str
 ):
-    """Helper function to export a document"""
-    bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+    """
+    Helper function to export a document.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
+    # SECURITY: bot_name is REQUIRED
+    if not bot_name or not bot_name.strip():
+        logger.error("_export_document_helper: bot_name is REQUIRED for security")
+        raise HTTPException(
+            status_code=400,
+            detail="bot_name is required. Each bot must only access its own data."
+        )
+    
+    bot_info = await verify_telegram_user(telegram_user_id, bot_name)
     regos_token = bot_info["regos_integration_token"]
     telegram_bot_token = bot_info.get("telegram_token")
     
@@ -106,15 +118,19 @@ async def export_purchase_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Generate and send Excel file for purchase document to Telegram chat"""
+    """
+    Generate and send Excel file for purchase document to Telegram chat.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
         return await _export_document_helper(
             document_id=document_id,
             telegram_user_id=telegram_user_id,
             partner_id=partner_id,
-            bot_token=bot_token,
+            bot_name=bot_name,
             doc_endpoint="DocPurchase/Get",
             ops_endpoint="PurchaseOperation/Get",
             doc_type="purchase",
@@ -132,15 +148,19 @@ async def export_purchase_return_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Generate and send Excel file for purchase return document to Telegram chat"""
+    """
+    Generate and send Excel file for purchase return document to Telegram chat.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
         return await _export_document_helper(
             document_id=document_id,
             telegram_user_id=telegram_user_id,
             partner_id=partner_id,
-            bot_token=bot_token,
+            bot_name=bot_name,
             doc_endpoint="DocReturnsToPartner/Get",
             ops_endpoint="ReturnsToPartnerOperation/Get",
             doc_type="purchase-return",
@@ -158,15 +178,19 @@ async def export_wholesale_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Generate and send Excel file for wholesale document to Telegram chat"""
+    """
+    Generate and send Excel file for wholesale document to Telegram chat.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
         return await _export_document_helper(
             document_id=document_id,
             telegram_user_id=telegram_user_id,
             partner_id=partner_id,
-            bot_token=bot_token,
+            bot_name=bot_name,
             doc_endpoint="DocWholeSale/Get",
             ops_endpoint="WholeSaleOperation/Get",
             doc_type="wholesale",
@@ -184,15 +208,19 @@ async def export_wholesale_return_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Generate and send Excel file for wholesale return document to Telegram chat"""
+    """
+    Generate and send Excel file for wholesale return document to Telegram chat.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
         return await _export_document_helper(
             document_id=document_id,
             telegram_user_id=telegram_user_id,
             partner_id=partner_id,
-            bot_token=bot_token,
+            bot_name=bot_name,
             doc_endpoint="DocWholeSaleReturn/Get",
             ops_endpoint="WholeSaleReturnOperation/Get",
             doc_type="wholesale-return",

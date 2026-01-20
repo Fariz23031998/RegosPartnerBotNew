@@ -24,11 +24,23 @@ async def get_orders(
     partner_id: int = Query(..., description="Partner ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get orders for partner"""
+    """
+    Get orders for partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own orders.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_orders: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -143,11 +155,23 @@ async def get_order_details(
     order_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get order details with operations"""
+    """
+    Get order details with operations.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own orders.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_order_details: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -208,11 +232,23 @@ async def get_order_details(
 @router.post("/orders/create")
 async def create_order(
     request: CreateOrderRequest = Body(...),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Create an order from partner"""
+    """
+    Create an order from partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only create orders using its own regos_integration_token.
+    """
     try:
-        bot_info = await verify_telegram_user(request.telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("create_order: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(request.telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         bot_id = bot_info["bot_id"]
         

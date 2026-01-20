@@ -56,7 +56,7 @@ class Bot(Base):
     )
     telegram_token: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     regos_integration_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    bot_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    bot_name: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Subscription fields
     subscription_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -112,6 +112,7 @@ class BotSettings(Base):
     online_store_stock_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     online_store_price_type_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     online_store_currency_id: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    currency_name: Mapped[Optional[str]] = mapped_column(String, nullable=True, default="сум")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(),
         server_default=func.now(),
@@ -134,6 +135,7 @@ class BotSettings(Base):
             "online_store_stock_id": self.online_store_stock_id,
             "online_store_price_type_id": self.online_store_price_type_id,
             "online_store_currency_id": self.online_store_currency_id,
+            "currency_name": self.currency_name,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

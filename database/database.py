@@ -48,6 +48,7 @@ class Database:
         
         # Run migrations for existing tables
         await self._migrate_subscription_fields()
+        await self._migrate_unique_constraints()
     
     async def _migrate_subscription_fields(self):
         """Add subscription fields to existing bots table if they don't exist"""
@@ -129,6 +130,92 @@ class Database:
             logger.error(f"Error during database migration: {e}", exc_info=True)
             # Don't raise - allow app to continue even if migration fails
             # (columns might already exist)
+    
+    async def _migrate_unique_constraints(self):
+        """Add uniqueness constraints to bot_name and currency_name"""
+        import logging
+        from sqlalchemy import text
+        logger = logging.getLogger(__name__)
+        
+        try:
+            async with self.engine.begin() as conn:
+                # Check if bots table exists
+                table_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='bots'")
+                )
+                if not table_check.fetchone():
+                    logger.info("Bots table does not exist yet, skipping uniqueness constraint migration")
+                    return
+                
+                # Check if unique constraint already exists on bot_name
+                # SQLite doesn't support checking constraints directly, so we check indexes
+                index_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='index' AND sql LIKE '%bot_name%' AND sql LIKE '%UNIQUE%'")
+                )
+                existing_indexes = index_check.fetchall()
+                
+                # Check if there's already a unique index on bot_name
+                has_unique_bot_name = False
+                for idx in existing_indexes:
+                    idx_name = idx[0]
+                    idx_info = await conn.execute(
+                        text(f"SELECT sql FROM sqlite_master WHERE type='index' AND name='{idx_name}'")
+                    )
+                    idx_sql = idx_info.fetchone()
+                    if idx_sql and idx_sql[0] and 'UNIQUE' in idx_sql[0].upper() and 'bot_name' in idx_sql[0]:
+                        has_unique_bot_name = True
+                        break
+                
+                if not has_unique_bot_name:
+                    logger.info("Adding unique constraint to bot_name in bots table")
+                    # SQLite doesn't support ALTER TABLE ADD CONSTRAINT, so we create a unique index
+                    # First, check for NULL values and handle them (SQLite allows NULL in unique columns)
+                    await conn.execute(
+                        text("CREATE UNIQUE INDEX IF NOT EXISTS idx_bots_bot_name_unique ON bots(bot_name) WHERE bot_name IS NOT NULL")
+                    )
+                    logger.info("Created unique index on bot_name (excluding NULL values)")
+                
+                # Check if bot_settings table exists and add currency_name column if needed
+                bot_settings_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='bot_settings'")
+                )
+                if bot_settings_check.fetchone():
+                    # Check if currency_name column exists
+                    bot_settings_result = await conn.execute(text("PRAGMA table_info(bot_settings)"))
+                    bot_settings_rows = bot_settings_result.fetchall()
+                    bot_settings_columns = [row[1] for row in bot_settings_rows] if bot_settings_rows else []
+                    
+                    if 'currency_name' not in bot_settings_columns:
+                        logger.info("currency_name column does not exist yet, adding it")
+                        await conn.execute(
+                            text("ALTER TABLE bot_settings ADD COLUMN currency_name TEXT DEFAULT 'сум'")
+                        )
+                        logger.info("Added currency_name column to bot_settings table")
+                    
+                    # Remove unique constraint on currency_name if it exists (from previous migration)
+                    # Check for unique index on currency_name
+                    currency_index_check = await conn.execute(
+                        text("SELECT name FROM sqlite_master WHERE type='index' AND sql LIKE '%currency_name%' AND sql LIKE '%UNIQUE%'")
+                    )
+                    currency_indexes = currency_index_check.fetchall()
+                    
+                    for idx in currency_indexes:
+                        idx_name = idx[0]
+                        # Verify it's actually a unique index on currency_name
+                        idx_info = await conn.execute(
+                            text(f"SELECT sql FROM sqlite_master WHERE type='index' AND name='{idx_name}'")
+                        )
+                        idx_sql = idx_info.fetchone()
+                        if idx_sql and idx_sql[0] and 'UNIQUE' in idx_sql[0].upper() and 'currency_name' in idx_sql[0]:
+                            logger.info(f"Removing unique constraint on currency_name: dropping index {idx_name}")
+                            await conn.execute(text(f"DROP INDEX IF EXISTS {idx_name}"))
+                            logger.info(f"Dropped unique index {idx_name} on currency_name")
+                
+                logger.info("Uniqueness constraints migration completed successfully")
+        except Exception as e:
+            logger.error(f"Error during uniqueness constraints migration: {e}", exc_info=True)
+            # Don't raise - allow app to continue even if migration fails
+            # (constraints might already exist)
     
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get async session (context manager)"""

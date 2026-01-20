@@ -51,7 +51,8 @@ async def create_bot_settings(
                 bot_id=settings.bot_id,
                 online_store_stock_id=settings.online_store_stock_id,
                 online_store_price_type_id=settings.online_store_price_type_id,
-                online_store_currency_id=settings.online_store_currency_id
+                online_store_currency_id=settings.online_store_currency_id,
+                currency_name=settings.currency_name
             )
             
             return BotSettingsResponse(
@@ -60,6 +61,7 @@ async def create_bot_settings(
                 online_store_stock_id=bot_settings.online_store_stock_id,
                 online_store_price_type_id=bot_settings.online_store_price_type_id,
                 online_store_currency_id=bot_settings.online_store_currency_id,
+                currency_name=bot_settings.currency_name,
                 created_at=bot_settings.created_at.isoformat(),
                 updated_at=bot_settings.updated_at.isoformat()
             )
@@ -104,6 +106,7 @@ async def get_all_bot_settings(
                     online_store_stock_id=settings.online_store_stock_id,
                     online_store_price_type_id=settings.online_store_price_type_id,
                     online_store_currency_id=settings.online_store_currency_id,
+                    currency_name=settings.currency_name,
                     created_at=settings.created_at.isoformat(),
                     updated_at=settings.updated_at.isoformat()
                 )
@@ -142,6 +145,7 @@ async def get_bot_settings(
                 online_store_stock_id=bot_settings.online_store_stock_id,
                 online_store_price_type_id=bot_settings.online_store_price_type_id,
                 online_store_currency_id=bot_settings.online_store_currency_id,
+                currency_name=bot_settings.currency_name,
                 created_at=bot_settings.created_at.isoformat(),
                 updated_at=bot_settings.updated_at.isoformat()
             )
@@ -180,6 +184,7 @@ async def get_bot_settings_by_bot_id(
                 online_store_stock_id=bot_settings.online_store_stock_id,
                 online_store_price_type_id=bot_settings.online_store_price_type_id,
                 online_store_currency_id=bot_settings.online_store_currency_id,
+                currency_name=bot_settings.currency_name,
                 created_at=bot_settings.created_at.isoformat(),
                 updated_at=bot_settings.updated_at.isoformat()
             )
@@ -219,7 +224,8 @@ async def update_bot_settings(
                 settings_id=settings_id,
                 online_store_stock_id=settings.online_store_stock_id,
                 online_store_price_type_id=settings.online_store_price_type_id,
-                online_store_currency_id=settings.online_store_currency_id
+                online_store_currency_id=settings.online_store_currency_id,
+                currency_name=settings.currency_name
             )
             
             if not updated:
@@ -231,6 +237,7 @@ async def update_bot_settings(
                 online_store_stock_id=updated.online_store_stock_id,
                 online_store_price_type_id=updated.online_store_price_type_id,
                 online_store_currency_id=updated.online_store_currency_id,
+                currency_name=updated.currency_name,
                 created_at=updated.created_at.isoformat(),
                 updated_at=updated.updated_at.isoformat()
             )
@@ -270,7 +277,8 @@ async def update_bot_settings_by_bot_id(
                 bot_id=bot_id,
                 online_store_stock_id=settings.online_store_stock_id,
                 online_store_price_type_id=settings.online_store_price_type_id,
-                online_store_currency_id=settings.online_store_currency_id
+                online_store_currency_id=settings.online_store_currency_id,
+                currency_name=settings.currency_name
             )
             
             if not updated:
@@ -282,6 +290,7 @@ async def update_bot_settings_by_bot_id(
                 online_store_stock_id=updated.online_store_stock_id,
                 online_store_price_type_id=updated.online_store_price_type_id,
                 online_store_currency_id=updated.online_store_currency_id,
+                currency_name=updated.currency_name,
                 created_at=updated.created_at.isoformat(),
                 updated_at=updated.updated_at.isoformat()
             )

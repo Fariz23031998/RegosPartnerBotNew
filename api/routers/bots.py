@@ -46,6 +46,17 @@ async def create_bot(
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             
+            # Validate bot_name if provided - must be URL-safe
+            if bot.bot_name:
+                import re
+                # Allow only alphanumeric, hyphens, underscores, and dots
+                # Must not start or end with dot or hyphen
+                if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$', bot.bot_name):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Bot name can only contain letters, numbers, dots, hyphens, and underscores. It cannot start or end with a dot or hyphen."
+                    )
+            
             # Create bot in database
             bot_obj = await bot_repo.create(
                 user_id=bot.user_id,
@@ -174,6 +185,16 @@ async def update_bot(
     if bot_update.bot_name is not None:
         # Convert empty string to None
         name_str = (bot_update.bot_name or "").strip()
+        if name_str:
+            # Validate bot_name - must be URL-safe
+            import re
+            # Allow only alphanumeric, hyphens, underscores, and dots
+            # Must not start or end with dot or hyphen
+            if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$', name_str):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Bot name can only contain letters, numbers, dots, hyphens, and underscores. It cannot start or end with a dot or hyphen."
+                )
         update_params["bot_name"] = name_str if name_str else None
     if bot_update.regos_integration_token is not None:
         # Convert empty string to None (allows clearing the token)

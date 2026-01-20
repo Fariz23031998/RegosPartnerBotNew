@@ -38,9 +38,28 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null)
   const [partnerId, setPartnerId] = useState<number | null>(null)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
+  const [botName, setBotName] = useState<string | null>(null)
+  const [currencyName, setCurrencyName] = useState<string>('сум')
   const [currentPage, setCurrentPage] = useState<Page>('home')
 
   useEffect(() => {
+    // Extract bot_name from URL path: /mini-app/bot_name
+    // SECURITY: bot_name is REQUIRED - cannot proceed without it
+    const pathParts = window.location.pathname.split('/').filter(p => p)
+    let extractedBotName: string | null = null
+    
+    // Find mini-app in path and get the next part as bot_name
+    const miniAppIndex = pathParts.indexOf('mini-app')
+    if (miniAppIndex >= 0 && miniAppIndex < pathParts.length - 1) {
+      extractedBotName = decodeURIComponent(pathParts[miniAppIndex + 1])
+      setBotName(extractedBotName)
+    } else {
+      // SECURITY: If bot_name is not in URL, show error
+      setError('Invalid URL: bot name is required. Please open this app through your Telegram bot.')
+      setIsLoading(false)
+      return
+    }
+    
     // Check if running in Telegram Web App
     const tg = window.Telegram?.WebApp
     
@@ -55,8 +74,8 @@ function AppContent() {
       if (user?.id) {
         const userId = user.id
         setTelegramUserId(userId)
-        // Authenticate user
-        authenticateUser(userId)
+        // Authenticate user with bot_name from URL (REQUIRED)
+        authenticateUser(userId, extractedBotName)
         return
       }
       
@@ -71,7 +90,7 @@ function AppContent() {
             const user = JSON.parse(userStr)
             const userId = user.id
             setTelegramUserId(userId)
-            authenticateUser(userId)
+            authenticateUser(userId, extractedBotName)
             return
           }
         }
@@ -85,15 +104,32 @@ function AppContent() {
     setIsLoading(false)
   }, [])
 
-  const authenticateUser = async (userId: number) => {
+  const authenticateUser = async (userId: number, botName: string | null) => {
+    // SECURITY: bot_name is REQUIRED
+    if (!botName) {
+      setError('Bot name is required. Please open this app through your Telegram bot.')
+      setIsLoading(false)
+      return
+    }
+    
     try {
-      const response = await apiFetch(`/telegram-webapp/auth?telegram_user_id=${userId}`)
+      const url = new URL('/telegram-webapp/auth', window.location.origin)
+      url.searchParams.set('telegram_user_id', userId.toString())
+      url.searchParams.set('bot_name', botName) // REQUIRED - always set
+      
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {
         setIsAuthorized(true)
         if (data.partner_id) {
           setPartnerId(data.partner_id)
+        }
+        const finalBotName = data.bot_name || botName
+        if (finalBotName) {
+          setBotName(finalBotName)
+          // Fetch bot settings to get currency_name immediately after auth
+          fetchCurrencyName(finalBotName, userId)
         }
         // If partner_id is not found, user will need to enter it
       } else {
@@ -106,8 +142,61 @@ function AppContent() {
     }
   }
 
-  // Add missing dependency for useEffect
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchCurrencyName = async (currentBotName: string, userId: number) => {
+    try {
+      const url = new URL('/telegram-webapp/bot-settings', window.location.origin)
+      url.searchParams.set('telegram_user_id', userId.toString())
+      url.searchParams.set('bot_name', encodeURIComponent(currentBotName))
+      
+      console.log('Fetching currency name from:', url.pathname + url.search)
+      
+      const response = await apiFetch(url.pathname + url.search)
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch currency name: HTTP ${response.status}`)
+        return
+      }
+      
+      const data = await response.json()
+      
+      console.log('Bot settings response:', JSON.stringify(data, null, 2)) // Debug log with full JSON
+      console.log('Response keys:', Object.keys(data))
+      console.log('currency_name in response:', data.currency_name)
+      console.log('Has currency_name?', 'currency_name' in data)
+      
+      if (data.ok) {
+        // Always update currency_name if provided in response (even if it's the default "сум")
+        // This ensures we get the latest value from the database
+        if (data.currency_name !== undefined && data.currency_name !== null) {
+          const currency = String(data.currency_name).trim()
+          console.log('Setting currency name to:', currency)
+          setCurrencyName(currency)
+        } else {
+          console.warn('Currency name is undefined or null in response.')
+          console.warn('Full response object:', data)
+          console.warn('Response keys:', Object.keys(data))
+          // Try to get it from bot_settings if it's nested
+          if (data.bot_settings && data.bot_settings.currency_name) {
+            console.log('Found currency_name in bot_settings:', data.bot_settings.currency_name)
+            setCurrencyName(String(data.bot_settings.currency_name).trim())
+          }
+        }
+      } else {
+        console.warn('Bot settings response not ok:', data)
+      }
+    } catch (err) {
+      console.error('Error fetching currency name:', err)
+      // Keep default 'сум' if fetch fails
+    }
+  }
+
+  // Refetch currency name when botName or telegramUserId changes
+  useEffect(() => {
+    if (botName && telegramUserId && isAuthorized) {
+      console.log('Refetching currency name for bot:', botName)
+      fetchCurrencyName(botName, telegramUserId)
+    }
+  }, [botName, telegramUserId, isAuthorized])
 
   if (isLoading) {
     return <Loading />
@@ -168,6 +257,8 @@ function AppContent() {
         <Shop 
           telegramUserId={telegramUserId!} 
           partnerId={partnerId}
+          botName={botName}
+          currencyName={currencyName}
           onBack={handleBackToHome}
         />
       </div>
@@ -180,6 +271,7 @@ function AppContent() {
       <DocumentList 
         telegramUserId={telegramUserId!} 
         partnerId={partnerId}
+        botName={botName}
         onBack={handleBackToHome}
       />
     </div>
@@ -187,8 +279,21 @@ function AppContent() {
 }
 
 function App() {
+  // Extract bot_name from URL before rendering CartProvider
+  const [botName, setBotName] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Extract bot_name from URL path: /mini-app/bot_name
+    const pathParts = window.location.pathname.split('/').filter(p => p)
+    const miniAppIndex = pathParts.indexOf('mini-app')
+    if (miniAppIndex >= 0 && miniAppIndex < pathParts.length - 1) {
+      const extractedBotName = decodeURIComponent(pathParts[miniAppIndex + 1])
+      setBotName(extractedBotName)
+    }
+  }, [])
+
   return (
-    <CartProvider>
+    <CartProvider botName={botName}>
       <AppContent />
     </CartProvider>
   )

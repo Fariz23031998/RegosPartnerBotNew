@@ -24,12 +24,19 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
-const CART_STORAGE_KEY = 'telegram_shop_cart'
+// Helper function to get cart storage key with bot_name prefix
+function getCartStorageKey(botName: string | null): string {
+  if (!botName) {
+    return 'telegram_shop_cart' // Fallback for backward compatibility
+  }
+  return `${botName}_telegram_shop_cart`
+}
 
 // Helper function to load cart from localStorage
-function loadCartFromStorage(): CartItem[] {
+function loadCartFromStorage(botName: string | null): CartItem[] {
   try {
-    const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+    const storageKey = getCartStorageKey(botName)
+    const savedCart = localStorage.getItem(storageKey)
     if (savedCart) {
       const parsed = JSON.parse(savedCart)
       if (Array.isArray(parsed)) {
@@ -42,9 +49,9 @@ function loadCartFromStorage(): CartItem[] {
   return []
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({ children, botName }: { children: ReactNode; botName?: string | null }) {
   // Initialize cart from localStorage immediately
-  const [cart, setCart] = useState<CartItem[]>(() => loadCartFromStorage())
+  const [cart, setCart] = useState<CartItem[]>(() => loadCartFromStorage(botName || null))
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Mark as initialized after first render
@@ -52,12 +59,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setIsInitialized(true)
   }, [])
 
+  // Reload cart when botName changes
+  useEffect(() => {
+    if (botName && isInitialized) {
+      const loadedCart = loadCartFromStorage(botName)
+      setCart(loadedCart)
+    }
+  }, [botName, isInitialized])
+
   // Save cart to localStorage whenever it changes (but not on initial load)
   useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+    if (isInitialized && botName) {
+      const storageKey = getCartStorageKey(botName)
+      localStorage.setItem(storageKey, JSON.stringify(cart))
     }
-  }, [cart, isInitialized])
+  }, [cart, isInitialized, botName])
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     setCart(prev => {

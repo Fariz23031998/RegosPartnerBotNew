@@ -21,11 +21,23 @@ async def get_purchase_documents(
     partner_id: int = Query(..., description="Partner ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get purchase documents for partner"""
+    """
+    Get purchase documents for partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_purchase_documents: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -79,11 +91,23 @@ async def get_purchase_return_documents(
     partner_id: int = Query(..., description="Partner ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get return purchase documents for partner"""
+    """
+    Get return purchase documents for partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_purchase_return_documents: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -137,11 +161,23 @@ async def get_wholesale_documents(
     partner_id: int = Query(..., description="Partner ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get wholesale documents for partner"""
+    """
+    Get wholesale documents for partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_wholesale_documents: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -195,11 +231,23 @@ async def get_wholesale_return_documents(
     partner_id: int = Query(..., description="Partner ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get wholesale return documents for partner"""
+    """
+    Get wholesale return documents for partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_wholesale_return_documents: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches
@@ -253,11 +301,23 @@ async def get_payment_documents(
     partner_id: int = Query(..., description="Partner ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get payment documents for partner"""
+    """
+    Get payment documents for partner.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own documents.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_payment_documents: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Verify partner's Telegram ID matches

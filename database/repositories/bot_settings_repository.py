@@ -19,14 +19,16 @@ class BotSettingsRepository:
         bot_id: int,
         online_store_stock_id: Optional[int] = None,
         online_store_price_type_id: Optional[int] = None,
-        online_store_currency_id: int = 1
+        online_store_currency_id: int = 1,
+        currency_name: Optional[str] = None
     ) -> BotSettings:
         """Create new bot settings"""
         bot_settings = BotSettings(
             bot_id=bot_id,
             online_store_stock_id=online_store_stock_id,
             online_store_price_type_id=online_store_price_type_id,
-            online_store_currency_id=online_store_currency_id
+            online_store_currency_id=online_store_currency_id,
+            currency_name=currency_name or "сум"
         )
         self.session.add(bot_settings)
         await self.session.commit()
@@ -57,7 +59,8 @@ class BotSettingsRepository:
         settings_id: int,
         online_store_stock_id: Optional[int] = None,
         online_store_price_type_id: Optional[int] = None,
-        online_store_currency_id: Optional[int] = None
+        online_store_currency_id: Optional[int] = None,
+        currency_name: Optional[str] = None
     ) -> Optional[BotSettings]:
         """Update bot settings"""
         update_values = {}
@@ -67,6 +70,8 @@ class BotSettingsRepository:
             update_values["online_store_price_type_id"] = online_store_price_type_id
         if online_store_currency_id is not None:
             update_values["online_store_currency_id"] = online_store_currency_id
+        if currency_name is not None:
+            update_values["currency_name"] = currency_name
         
         if update_values:
             await self.session.execute(
@@ -76,18 +81,22 @@ class BotSettingsRepository:
             )
             await self.session.commit()
         
-        # Fetch updated settings
+        # Fetch updated settings and refresh to ensure we get the latest data
         result = await self.session.execute(
             select(BotSettings).where(BotSettings.id == settings_id)
         )
-        return result.scalar_one_or_none()
+        updated_settings = result.scalar_one_or_none()
+        if updated_settings:
+            await self.session.refresh(updated_settings)
+        return updated_settings
     
     async def update_by_bot_id(
         self,
         bot_id: int,
         online_store_stock_id: Optional[int] = None,
         online_store_price_type_id: Optional[int] = None,
-        online_store_currency_id: Optional[int] = None
+        online_store_currency_id: Optional[int] = None,
+        currency_name: Optional[str] = None
     ) -> Optional[BotSettings]:
         """Update bot settings by bot ID"""
         update_values = {}
@@ -97,6 +106,8 @@ class BotSettingsRepository:
             update_values["online_store_price_type_id"] = online_store_price_type_id
         if online_store_currency_id is not None:
             update_values["online_store_currency_id"] = online_store_currency_id
+        if currency_name is not None:
+            update_values["currency_name"] = currency_name
         
         if update_values:
             await self.session.execute(
@@ -106,11 +117,14 @@ class BotSettingsRepository:
             )
             await self.session.commit()
         
-        # Fetch updated settings
+        # Fetch updated settings and refresh to ensure we get the latest data
         result = await self.session.execute(
             select(BotSettings).where(BotSettings.bot_id == bot_id)
         )
-        return result.scalar_one_or_none()
+        updated_settings = result.scalar_one_or_none()
+        if updated_settings:
+            await self.session.refresh(updated_settings)
+        return updated_settings
     
     async def delete(self, settings_id: int) -> bool:
         """Delete bot settings by ID"""

@@ -10,10 +10,12 @@ interface OrderDetailProps {
   orderId: number
   telegramUserId: number
   partnerId: number
+  botName: string | null
+  currencyName: string
   onBack: () => void
 }
 
-function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetailProps) {
+function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName, onBack }: OrderDetailProps) {
   const [order, setOrder] = useState<any>(null)
   const [operations, setOperations] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -28,9 +30,16 @@ function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetail
       setIsLoading(true)
       setError(null)
 
+      // SECURITY: bot_name is REQUIRED
+      if (!botName) {
+        setError('Bot name is required. Please refresh the page.')
+        return
+      }
+      
       const url = new URL(`/telegram-webapp/orders/${orderId}`, window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
+      url.searchParams.set('bot_name', botName) // REQUIRED
 
       const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
@@ -171,7 +180,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, onBack }: OrderDetail
             <div className="order-total">
               <span className="total-label">Итого к оплате:</span>
               <span className="total-value">
-                {formatPrice(calculateTotal())} {order.currency?.name || 'сум'}
+                {formatPrice(calculateTotal())} {order.currency?.name || currencyName}
               </span>
             </div>
           </>

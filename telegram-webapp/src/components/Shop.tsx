@@ -1,218 +1,135 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FaShoppingCart, FaArrowLeft, FaImages } from 'react-icons/fa'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import Cart from './Cart'
 import Checkout from './Checkout'
 import OrderDetail from './OrderDetail'
+import Toast from './Toast'
 import { useCart } from '../contexts/CartContext'
-import { apiFetch } from '../utils/api'
+import { useOptimisticCart } from '../hooks/useOptimisticCart'
+import { useProducts } from '../hooks/useProducts'
+import { useOrders } from '../hooks/useOrders'
 import { formatNumber } from '../utils/formatNumber'
+import { formatDate, calculateOrderTotal, getOrderStatus } from '../utils/orderUtils'
 import './Shop.css'
-
-interface Product {
-  item: {
-    id: number
-    name: string
-    code: number
-    image_url?: string
-    unit?: {
-      name: string
-    }
-    group: {
-      id: number
-      name: string
-      path?: string
-    }
-  }
-  quantity: {
-    common: number
-    allowed?: number
-  }
-  price: number
-  image_url?: string
-}
-
-interface Group {
-  id: number
-  name: string
-  path?: string
-}
 
 interface ShopProps {
   telegramUserId: number
   partnerId: number
+  botName: string | null
+  currencyName: string
   onBack: () => void
 }
 
 type ShopTab = 'products' | 'orders'
 
-function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
+function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: ShopProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('products')
-  const [products, setProducts] = useState<Product[]>([])
-  const [groups, setGroups] = useState<Group[]>([])
-  const [selectedGroups, setSelectedGroups] = useState<number[]>([])
   const [showGroupFilter, setShowGroupFilter] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [offset, setOffset] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
-  const observerTarget = useRef<HTMLDivElement>(null)
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { addToCart, updateQuantity, getItemQuantity, getCartItemCount } = useCart()
+  const { getCartItemCount } = useCart()
+  const cart = useOptimisticCart()
+  const [cartError, setCartError] = useState<string | null>(null)
+
+  // Memoize stock info creation to avoid recreating objects
+  const createStockInfo = useCallback((product: { quantity: { common: number; allowed?: number } }) => ({
+    common: product.quantity.common,
+    allowed: product.quantity.allowed
+  }), [])
+
+  // Optimized handlers that batch state updates
+  const handleAddToCart = useCallback((product: any) => {
+    const stockInfo = createStockInfo(product)
+    const result = cart.addToCart({
+      productId: product.item.id,
+      name: product.item.name,
+      price: product.price,
+      image_url: product.image_url || product.item.image_url,
+      code: product.item.code,
+      group: product.item.group.name,
+      quantityAllowed: product.quantity.allowed,
+    }, stockInfo)
+    
+    // Batch error state update
+    if (!result.isValid && result.error) {
+      setCartError(result.error)
+    } else {
+      setCartError(null)
+    }
+  }, [cart, createStockInfo])
+
+  const handleUpdateQuantity = useCallback((productId: number, newQuantity: number, stockInfo: { common: number; allowed?: number }) => {
+    const result = cart.updateQuantity(productId, newQuantity, stockInfo)
+    if (!result.isValid && result.error) {
+      setCartError(result.error)
+      if (result.maxQuantity !== undefined) {
+        cart.updateQuantity(productId, result.maxQuantity, stockInfo)
+      }
+    } else {
+      setCartError(null)
+    }
+  }, [cart])
+
+  const { getItemQuantity } = cart
 
   // Quick filter state
   type QuickFilter = 'all' | 'in-stock' | 'low-stock' | 'cheap' | 'expensive'
+  
+  // Helper function to get filter storage key with bot_name prefix
+  const getFilterStorageKey = useCallback((botName: string | null): string => {
+    if (!botName) {
+      return 'shop-quick-filter' // Fallback for backward compatibility
+    }
+    return `${botName}_shop-quick-filter`
+  }, [])
+
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(() => {
-    const saved = localStorage.getItem('shop-quick-filter')
+    const storageKey = getFilterStorageKey(botName)
+    const saved = localStorage.getItem(storageKey)
     return (saved as QuickFilter) || 'all'
   })
 
-  // Orders state
-  const [orders, setOrders] = useState<any[]>([])
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
-  const [ordersError, setOrdersError] = useState<string | null>(null)
-  const [selectedOrder, setSelectedOrder] = useState<{ id: number } | null>(null)
-
+  // Reload quick filter when botName changes
   useEffect(() => {
-    if (activeTab === 'products') {
-      fetchGroups()
-      fetchProducts(true)
-    } else if (activeTab === 'orders') {
-      fetchOrders()
-    }
-  }, [telegramUserId, activeTab])
-
-  // Debounce search query
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 1000)
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
+    if (botName) {
+      const storageKey = getFilterStorageKey(botName)
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        setQuickFilter(saved as QuickFilter)
       }
     }
-  }, [searchQuery])
+  }, [botName, getFilterStorageKey])
+
+  // Orders state
+  const [selectedOrder, setSelectedOrder] = useState<{ id: number } | null>(null)
+  const { orders, isLoadingOrders, ordersError } = useOrders(telegramUserId, partnerId, botName)
+
+  // Use products hook
+  const {
+    products,
+    groups,
+    selectedGroups,
+    setSelectedGroups,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    searchQuery,
+    setSearchQuery,
+    observerTarget,
+    applyQuickFilter
+  } = useProducts(telegramUserId, botName, quickFilter)
 
   // Save quick filter to localStorage
   useEffect(() => {
-    localStorage.setItem('shop-quick-filter', quickFilter)
-  }, [quickFilter])
-
-  useEffect(() => {
-    // Reset and fetch when filters change
-    setOffset(0)
-    setProducts([])
-    fetchProducts(true)
-  }, [selectedGroups, debouncedSearchQuery, quickFilter])
-
-  const fetchGroups = async () => {
-    try {
-      const response = await apiFetch(`/telegram-webapp/product-groups?telegram_user_id=${telegramUserId}`)
-      const data = await response.json()
-      if (data.ok) {
-        setGroups(data.groups || [])
-      }
-    } catch (err) {
-      console.error('Error fetching groups:', err)
+    if (botName) {
+      const storageKey = getFilterStorageKey(botName)
+      localStorage.setItem(storageKey, quickFilter)
     }
-  }
-
-  const fetchProducts = async (reset: boolean = false) => {
-    try {
-      if (reset) {
-        setIsLoading(true)
-        setError(null)
-      } else {
-        setIsLoadingMore(true)
-      }
-
-      const currentOffset = reset ? 0 : offset
-      const groupIds = selectedGroups.length > 0 ? selectedGroups.join(',') : undefined
-
-      const url = new URL('/telegram-webapp/products', window.location.origin)
-      url.searchParams.set('telegram_user_id', telegramUserId.toString())
-      url.searchParams.set('limit', '20')
-      url.searchParams.set('offset', currentOffset.toString())
-      if (groupIds) {
-        url.searchParams.set('group_ids', groupIds)
-      }
-      if (debouncedSearchQuery) {
-        url.searchParams.set('search', debouncedSearchQuery)
-      }
-      // Set zero_quantity to false for "in-stock" and "low-stock" filters
-      if (quickFilter === 'in-stock' || quickFilter === 'low-stock') {
-        url.searchParams.set('zero_quantity', 'false')
-      }
-      // Pass filter_type to backend for server-side filtering
-      if (quickFilter !== 'all') {
-        url.searchParams.set('filter_type', quickFilter)
-      }
-
-      const response = await apiFetch(url.pathname + url.search)
-      const data = await response.json()
-
-      if (data.ok) {
-        const newProducts = data.products || []
-        if (reset) {
-          setProducts(newProducts)
-        } else {
-          setProducts(prev => [...prev, ...newProducts])
-        }
-        setOffset(currentOffset + newProducts.length)
-        // Continue loading if there's a next_offset and we got products
-        // Note: Filtering happens client-side, so we might need to load more to fill the view
-        setHasMore(data.next_offset > 0 && newProducts.length > 0)
-      } else {
-        setError(data.message || 'Failed to fetch products')
-      }
-    } catch (err) {
-      setError('Error loading products')
-    } finally {
-      setIsLoading(false)
-      setIsLoadingMore(false)
-    }
-  }
-
-  const handleLoadMore = useCallback(() => {
-    if (!isLoadingMore && hasMore) {
-      fetchProducts(false)
-    }
-  }, [isLoadingMore, hasMore, offset, selectedGroups, debouncedSearchQuery])
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
-          handleLoadMore()
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    const currentTarget = observerTarget.current
-    if (currentTarget) {
-      observer.observe(currentTarget)
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget)
-      }
-    }
-  }, [handleLoadMore, hasMore, isLoadingMore])
+  }, [quickFilter, botName, getFilterStorageKey])
 
   const selectGroup = (groupId: number) => {
     setSelectedGroups([groupId])
@@ -255,71 +172,8 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
     })
   }
 
-  // Apply quick filters to products (now mostly handled server-side, but keep for any edge cases)
-  const applyQuickFilter = (productList: Product[]) => {
-    // Server-side filtering is now used, so just return the list as-is
-    // This function is kept for backward compatibility and any client-side edge case filtering
-    return productList
-  }
 
-  const fetchOrders = async () => {
-    try {
-      setIsLoadingOrders(true)
-      setOrdersError(null)
 
-      const url = new URL('/telegram-webapp/orders', window.location.origin)
-      url.searchParams.set('telegram_user_id', telegramUserId.toString())
-      url.searchParams.set('partner_id', partnerId.toString())
-
-      const response = await apiFetch(url.pathname + url.search)
-      const data = await response.json()
-
-      if (data.ok) {
-        setOrders(data.orders || [])
-      } else {
-        setOrdersError(data.message || 'Не удалось загрузить заказы')
-      }
-    } catch (err) {
-      console.error('Error fetching orders:', err)
-      setOrdersError('Ошибка при загрузке заказов')
-    } finally {
-      setIsLoadingOrders(false)
-    }
-  }
-
-  const formatDate = (timestamp: number | string) => {
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp * 1000)
-    return date.toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
-  }
-
-  // Calculate total from operations if order.total is not available
-  const calculateOrderTotal = (order: any) => {
-    if (order.total) {
-      return order.total
-    }
-    // Calculate from operations if available
-    if (order.operations && order.operations.length > 0) {
-      return order.operations.reduce((sum: number, op: any) => {
-        const amount = op.amount || (op.quantity || 0) * (op.price || 0)
-        return sum + amount
-      }, 0)
-    }
-    return 0
-  }
-
-  const getOrderStatus = (order: any) => {
-    if (order.performed) {
-      return 'Выполнен'
-    }
-    if (order.booked) {
-      return 'Забронирован'
-    }
-    return 'Новый'
-  }
 
   if (isLoading) {
     return <Loading />
@@ -331,31 +185,63 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
 
   if (showCheckout) {
     return (
-      <Checkout
-        telegramUserId={telegramUserId}
-        partnerId={partnerId}
-        onBack={() => setShowCheckout(false)}
-        onComplete={() => {
-          setShowCheckout(false)
-          setShowCart(false)
-        }}
-      />
+      <>
+        {cartError && (
+          <Toast
+            message={cartError}
+            type="warning"
+            duration={3000}
+            onClose={() => setCartError(null)}
+          />
+        )}
+        <Checkout
+          telegramUserId={telegramUserId}
+          partnerId={partnerId}
+          botName={botName}
+          currencyName={currencyName}
+          onBack={() => setShowCheckout(false)}
+          onComplete={() => {
+            setShowCheckout(false)
+            setShowCart(false)
+          }}
+        />
+      </>
     )
   }
 
   if (selectedOrder) {
     return (
-      <OrderDetail
-        orderId={selectedOrder.id}
-        telegramUserId={telegramUserId}
-        partnerId={partnerId}
-        onBack={() => setSelectedOrder(null)}
-      />
+      <>
+        {cartError && (
+          <Toast
+            message={cartError}
+            type="warning"
+            duration={3000}
+            onClose={() => setCartError(null)}
+          />
+        )}
+        <OrderDetail
+          orderId={selectedOrder.id}
+          telegramUserId={telegramUserId}
+          partnerId={partnerId}
+          botName={botName}
+          currencyName={currencyName}
+          onBack={() => setSelectedOrder(null)}
+        />
+      </>
     )
   }
 
   return (
     <div className="shop">
+      {cartError && (
+        <Toast
+          message={cartError}
+          type="warning"
+          duration={3000}
+          onClose={() => setCartError(null)}
+        />
+      )}
       <div className="shop-header">
         <button className="back-button-icon" onClick={onBack} aria-label="Назад">
           <FaArrowLeft />
@@ -498,7 +384,6 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
 
       {activeTab === 'products' && (
         <>
-
           {(() => {
             const filteredProducts = applyQuickFilter(products)
             return filteredProducts.length === 0 ? (
@@ -524,25 +409,17 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
                           )}
                         </div>
                         <div className="product-info">
-                          <div className="product-name">{highlightText(product.item.name, debouncedSearchQuery)}</div>
+                          <div className="product-name">{highlightText(product.item.name, searchQuery)}</div>
                           <div className="product-details">
-                            <div className="product-price">{formatPrice(product.price)} сум</div>
+                            <div className="product-price">{formatPrice(product.price)} {currencyName}</div>
                             <div className="product-quantity">В наличии: {product.quantity.common} {product.item.unit?.name}</div>
                             <div className="product-code">Код: {product.item.code}</div>
                             <div className="product-group">{product.item.group.name}</div>
                           </div>
                           {itemQuantity === 0 ? (
                             <button
-                              className="product-add-to-cart"
-                              onClick={() => addToCart({
-                                productId: product.item.id,
-                                name: product.item.name,
-                                price: product.price,
-                                image_url: product.image_url || product.item.image_url,
-                                code: product.item.code,
-                                group: product.item.group.name,
-                                quantityAllowed: product.quantity.allowed,
-                              })}
+                              className={`product-add-to-cart ${product.quantity.common <= 0 ? 'disabled' : ''}`}
+                              onClick={() => handleAddToCart(product)}
                             >
                               <FaShoppingCart />
                             </button>
@@ -550,23 +427,31 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
                             <div className="product-quantity-controls">
                               <button
                                 className="quantity-btn"
-                                onClick={() => updateQuantity(product.item.id, itemQuantity - 1)}
+                                onClick={() => {
+                                  const stockInfo = createStockInfo(product)
+                                  handleUpdateQuantity(product.item.id, itemQuantity - 1, stockInfo)
+                                }}
                               >
                                 −
                               </button>
                               <input
                                 type="number"
                                 min="1"
+                                max={product.quantity.allowed !== undefined ? product.quantity.allowed : product.quantity.common}
                                 value={itemQuantity}
                                 onChange={(e) => {
                                   const qty = parseInt(e.target.value) || 1
-                                  updateQuantity(product.item.id, qty)
+                                  const stockInfo = createStockInfo(product)
+                                  handleUpdateQuantity(product.item.id, qty, stockInfo)
                                 }}
                                 className="quantity-input"
                               />
                               <button
-                                className="quantity-btn"
-                                onClick={() => updateQuantity(product.item.id, itemQuantity + 1)}
+                                className={`quantity-btn ${itemQuantity >= (product.quantity.allowed !== undefined ? product.quantity.allowed : product.quantity.common) ? 'disabled' : ''}`}
+                                onClick={() => {
+                                  const stockInfo = createStockInfo(product)
+                                  handleUpdateQuantity(product.item.id, itemQuantity + 1, stockInfo)
+                                }}
                               >
                                 +
                               </button>
@@ -633,7 +518,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
                       </div>
                     )}
                     <div className="order-total">
-                      Итого: {formatPrice(calculateOrderTotal(order))} {order.currency?.name || 'сум'}
+                      Итого: {formatPrice(calculateOrderTotal(order))} {order.currency?.name || currencyName}
                     </div>
                   </div>
                 ))}
@@ -645,6 +530,7 @@ function Shop({ telegramUserId, partnerId, onBack }: ShopProps) {
 
       {activeTab === 'products' && showCart && (
         <Cart
+          currencyName={currencyName}
           onCheckout={() => {
             setShowCart(false)
             setShowCheckout(true)

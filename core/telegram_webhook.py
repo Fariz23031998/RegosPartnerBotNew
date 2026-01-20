@@ -134,7 +134,7 @@ async def set_chat_menu_button(token: str, web_app_url: str, bot_name: Optional[
                 json={
                     "menu_button": {
                         "type": "web_app",
-                        "text": "Открыть приложение",
+                        "text": "Открыть",
                         "web_app": {
                             "url": web_app_url
                         }

@@ -18,6 +18,7 @@ interface Document {
 interface DocumentListProps {
   telegramUserId: number
   partnerId: number
+  botName: string | null
   onBack?: () => void
 }
 
@@ -29,7 +30,7 @@ interface DocumentTotals {
   }
 }
 
-function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) {
+function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentListProps) {
   const [activeTab, setActiveTab] = useState<DocumentType>('purchase')
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -53,13 +54,22 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
     }
   }
 
+  // Date picker state (temporary, for UI)
   const [startDate, setStartDate] = useState(getCurrentMonthDates().start)
   const [endDate, setEndDate] = useState(getCurrentMonthDates().end)
+  
+  // Applied dates (used for fetching data)
+  const [appliedStartDate, setAppliedStartDate] = useState(getCurrentMonthDates().start)
+  const [appliedEndDate, setAppliedEndDate] = useState(getCurrentMonthDates().end)
 
   useEffect(() => {
-    fetchDocuments()
-    fetchAllDocumentTotals()
-  }, [activeTab, telegramUserId, partnerId, startDate, endDate])
+    // Only fetch if botName is available
+    // Use applied dates, not the picker dates
+    if (botName) {
+      fetchDocuments()
+      fetchAllDocumentTotals()
+    }
+  }, [activeTab, telegramUserId, partnerId, appliedStartDate, appliedEndDate, botName])
 
   // Helper function to get currency from a document
   const getCurrencyFromDocument = (doc: Document, docType: DocumentType): string => {
@@ -115,8 +125,20 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
             break
         }
 
-        const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}`
-        const response = await apiFetch(url)
+        // SECURITY: bot_name is REQUIRED
+        if (!botName) {
+          console.error('bot_name is required but not available')
+          return
+        }
+        
+        const url = new URL(endpoint, window.location.origin)
+        url.searchParams.set('telegram_user_id', telegramUserId.toString())
+        url.searchParams.set('partner_id', partnerId.toString())
+        url.searchParams.set('start_date', appliedStartDate) // Use applied dates
+        url.searchParams.set('end_date', appliedEndDate) // Use applied dates
+        url.searchParams.set('bot_name', botName) // REQUIRED
+        
+        const response = await apiFetch(url.pathname + url.search)
         const data = await response.json()
 
         if (data.ok) {
@@ -166,6 +188,13 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
   }, [showDatePicker])
 
   const fetchDocuments = async () => {
+    // SECURITY: bot_name is REQUIRED
+    if (!botName) {
+      setError('Bot name is required. Please refresh the page.')
+      setIsLoading(false)
+      return
+    }
+    
     setIsLoading(true)
     setError(null)
 
@@ -189,8 +218,14 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
           break
       }
 
-      const url = `${endpoint}?telegram_user_id=${telegramUserId}&partner_id=${partnerId}&start_date=${startDate}&end_date=${endDate}`
-      const response = await apiFetch(url)
+      const url = new URL(endpoint, window.location.origin)
+      url.searchParams.set('telegram_user_id', telegramUserId.toString())
+      url.searchParams.set('partner_id', partnerId.toString())
+      url.searchParams.set('start_date', startDate)
+      url.searchParams.set('end_date', endDate)
+      url.searchParams.set('bot_name', botName) // REQUIRED
+      
+      const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
       if (data.ok) {
@@ -229,6 +264,7 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
         documentType={selectedDocument.type}
         telegramUserId={telegramUserId}
         partnerId={partnerId}
+        botName={botName}
         onBack={() => setSelectedDocument(null)}
       />
     )
@@ -236,8 +272,10 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
 
   const handleDateChange = () => {
     if (startDate && endDate && startDate <= endDate) {
+      // Apply the selected dates - this will trigger useEffect to fetch data
+      setAppliedStartDate(startDate)
+      setAppliedEndDate(endDate)
       setShowDatePicker(false)
-      // fetchDocuments will be called automatically via useEffect
     }
   }
 
@@ -245,6 +283,9 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
     const dates = getCurrentMonthDates()
     setStartDate(dates.start)
     setEndDate(dates.end)
+    // Apply the reset dates immediately
+    setAppliedStartDate(dates.start)
+    setAppliedEndDate(dates.end)
     setShowDatePicker(false)
   }
 
@@ -300,7 +341,12 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
         <div className="date-filter-section">
           <button
             className="calendar-button"
-            onClick={() => setShowDatePicker(!showDatePicker)}
+            onClick={() => {
+              // When opening the picker, initialize with currently applied dates
+              setStartDate(appliedStartDate)
+              setEndDate(appliedEndDate)
+              setShowDatePicker(!showDatePicker)
+            }}
             title="Выбрать период"
           >
             📅
@@ -343,7 +389,7 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
           )}
           {!showDatePicker && (
             <div className="date-range-display">
-              {new Date(startDate).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} - {new Date(endDate).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              {new Date(appliedStartDate).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} - {new Date(appliedEndDate).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
             </div>
           )}
           {Object.keys(documentTotals).length > 0 && (
@@ -400,8 +446,9 @@ function DocumentList({ telegramUserId, partnerId, onBack }: DocumentListProps) 
         <PartnerBalance
           telegramUserId={telegramUserId}
           partnerId={partnerId}
-          startDate={startDate}
-          endDate={endDate}
+          startDate={appliedStartDate}
+          endDate={appliedEndDate}
+          botName={botName}
         />
       ) : isLoading ? (
         <div className="loading-state">Loading...</div>

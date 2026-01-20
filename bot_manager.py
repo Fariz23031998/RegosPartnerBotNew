@@ -40,10 +40,19 @@ class BotManager:
                 webhook_url = f"{self.webhook_url_base}{webhook_path}"
                 if await set_webhook(token, webhook_url, bot_name or self.bots[token].get("bot_name")):
                     await check_webhook_info(token)
-                # Re-set menu button
-                base = self.webhook_url_base.rstrip('/')
-                web_app_url = f"{base}/mini-app/"
-                await set_chat_menu_button(token, web_app_url, bot_name or self.bots[token].get("bot_name"))
+                # Re-set menu button with bot_name in URL
+                # Use TELEGRAM_WEB_BASE_URL from config if available, otherwise fallback to webhook_url_base
+                from config import TELEGRAM_WEB_BASE_URL
+                web_base_url = TELEGRAM_WEB_BASE_URL or self.webhook_url_base
+                
+                if web_base_url:
+                    base = web_base_url.rstrip('/')
+                    final_bot_name = bot_name or self.bots[token].get("bot_name")
+                    # URL encode bot_name for safe use in URL
+                    import urllib.parse
+                    encoded_bot_name = urllib.parse.quote(final_bot_name or "default", safe='')
+                    web_app_url = f"{base}/mini-app/{encoded_bot_name}/"
+                    await set_chat_menu_button(token, web_app_url, final_bot_name)
             return self.bots[token]
         
         # Get bot info from Telegram
@@ -72,14 +81,20 @@ class BotManager:
         else:
             logger.warning(f"Webhook base URL not set, bot {bot_data['bot_name']} registered but webhook not configured")
         
-        # Set menu button to launch web app
-        if self.webhook_url_base:
-            # Construct web app URL (ensure proper path joining)
-            base = self.webhook_url_base.rstrip('/')
-            web_app_url = f"{base}/mini-app/"
+        # Set menu button to launch web app with bot_name in URL
+        # Use TELEGRAM_WEB_BASE_URL from config if available, otherwise fallback to webhook_url_base
+        from config import TELEGRAM_WEB_BASE_URL
+        web_base_url = TELEGRAM_WEB_BASE_URL or self.webhook_url_base
+        
+        if web_base_url:
+            # Construct web app URL with bot_name, ensuring it ends with /
+            base = web_base_url.rstrip('/')
+            import urllib.parse
+            encoded_bot_name = urllib.parse.quote(bot_data["bot_name"] or "default", safe='')
+            web_app_url = f"{base}/mini-app/{encoded_bot_name}/"
             await set_chat_menu_button(token, web_app_url, bot_data["bot_name"])
         else:
-            logger.warning(f"Webhook base URL not set, menu button for {bot_data['bot_name']} not configured")
+            logger.warning(f"Web base URL not set, menu button for {bot_data['bot_name']} not configured")
         
         return bot_data
     

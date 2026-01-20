@@ -15,54 +15,79 @@ router = APIRouter()
 
 async def verify_telegram_user(
     telegram_user_id: int,
-    bot_token: Optional[str] = None
+    bot_name: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Verify Telegram user and get their partner info from REGOS.
     
+    SECURITY: bot_name is REQUIRED to ensure users of one bot cannot access data from other bots.
+    Even if telegram_user_id is the same across bots, each bot must only access its own data.
+    
     Args:
         telegram_user_id: Telegram user ID
-        bot_token: Optional bot token to find matching bot
+        bot_name: REQUIRED bot name to find matching bot (no fallback allowed for security)
         
     Returns:
-        dict: Partner info with regos_integration_token and telegram_token if found
+        dict: Partner info with regos_integration_token and bot_name if found
         
     Raises:
-        HTTPException: If user is not authorized
+        HTTPException: If user is not authorized or bot_name is missing
     """
-    # Find active bot with REGOS integration token
+    # SECURITY: bot_name is REQUIRED - no fallback allowed
+    if not bot_name or not bot_name.strip():
+        logger.error("bot_name is REQUIRED for security - cannot fallback to first bot")
+        raise HTTPException(
+            status_code=400,
+            detail="bot_name is required. Each bot must only access its own data."
+        )
+    
+    # Find active bot with REGOS integration token from database
     db = await get_db()
     async with db.async_session_maker() as session:
         bot_repo = BotRepository(session)
         
-        if bot_token:
-            # Find specific bot by token
-            bots = await bot_repo.get_all_active()
-            matching_bot = None
-            for bot in bots:
-                if bot.telegram_token == bot_token:
-                    matching_bot = bot
-                    break
-        else:
-            # Get first active bot with REGOS integration token
-            bots = await bot_repo.get_all_active()
-            matching_bot = None
-            for bot in bots:
-                if bot.regos_integration_token:
-                    matching_bot = bot
-                    break
+        # Normalize bot_name
+        bot_name = bot_name.strip()
+        # URL decode bot_name in case it was encoded
+        import urllib.parse
+        bot_name = urllib.parse.unquote(bot_name)
         
-        if not matching_bot or not matching_bot.regos_integration_token:
+        # Find specific bot by name - MUST match exactly
+        logger.info(f"Looking for bot with bot_name: {bot_name}")
+        matching_bot = await bot_repo.get_by_bot_name(bot_name)
+        
+        if not matching_bot:
+            logger.warning(f"Bot not found with provided bot_name: {bot_name}")
             raise HTTPException(
                 status_code=404,
-                detail="No bot with REGOS integration found"
+                detail=f"Bot not found with name: {bot_name}"
             )
         
+        if not matching_bot.is_active:
+            logger.warning(f"Bot {matching_bot.bot_id} ({bot_name}) found but is inactive")
+            raise HTTPException(
+                status_code=404,
+                detail="Bot is inactive"
+            )
+        
+        if not matching_bot.regos_integration_token:
+            logger.error(f"Bot {matching_bot.bot_id} ({matching_bot.bot_name}) found but has no regos_integration_token")
+            raise HTTPException(
+                status_code=404,
+                detail="Bot found but has no REGOS integration token configured"
+            )
+        
+        # Get regos_integration_token from database (bots table)
+        # This is the token stored in the database for this specific bot
+        # CRITICAL: This ensures each bot only uses its own regos_integration_token
         regos_token = matching_bot.regos_integration_token
         
+        logger.info(f"Using bot_id={matching_bot.bot_id}, bot_name={matching_bot.bot_name}, regos_integration_token from database (first 10 chars: {regos_token[:10] if regos_token and len(regos_token) > 10 else regos_token}...)")
+        
         return {
-            "regos_integration_token": regos_token,
+            "regos_integration_token": regos_token,  # From database bots.regos_integration_token
             "bot_id": matching_bot.bot_id,
+            "bot_name": matching_bot.bot_name,
             "telegram_token": matching_bot.telegram_token
         }
 
@@ -153,15 +178,27 @@ async def verify_partner_telegram_id(
 @router.get("/auth")
 async def authenticate_telegram_user(
     telegram_user_id: int = Query(..., description="Telegram user ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
     """
     Authenticate Telegram user and return their partner info.
     Fetches all partners and checks if any partner's oked field matches the Telegram user ID.
     Returns partner_id if found.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own data.
+    Users of one bot cannot see data from other bots, even if telegram_user_id is the same.
     """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED - cannot search across all bots
+        if not bot_name or not bot_name.strip():
+            logger.error("bot_name is REQUIRED for security - cannot search across all bots")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        # Verify with the provided bot_name (no fallback)
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         regos_token = bot_info["regos_integration_token"]
         
         # Fetch all partners
@@ -213,6 +250,7 @@ async def authenticate_telegram_user(
                 return {
                     "ok": True,
                     "bot_id": bot_info["bot_id"],
+                    "bot_name": bot_info["bot_name"],
                     "telegram_user_id": telegram_user_id,
                     "partner_id": partner_id,
                     "partner_name": partner_name

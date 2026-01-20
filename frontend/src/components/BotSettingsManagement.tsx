@@ -8,6 +8,7 @@ interface BotSettings {
   online_store_stock_id: number | null
   online_store_price_type_id: number | null
   online_store_currency_id: number
+  currency_name: string | null
   created_at: string
   updated_at: string
 }
@@ -32,7 +33,8 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
     bot_id: 0, 
     online_store_stock_id: '', 
     online_store_price_type_id: '',
-    online_store_currency_id: '1'
+    online_store_currency_id: '1',
+    currency_name: 'сум'
   })
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
@@ -74,9 +76,10 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         online_store_stock_id: formData.online_store_stock_id ? parseInt(formData.online_store_stock_id) : null,
         online_store_price_type_id: formData.online_store_price_type_id ? parseInt(formData.online_store_price_type_id) : null,
         online_store_currency_id: formData.online_store_currency_id ? parseInt(formData.online_store_currency_id) : 1,
+        currency_name: formData.currency_name || 'сум',
       })
       setShowModal(false)
-      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
+      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
       fetchData()
       onUpdate?.()
     } catch (err: any) {
@@ -91,6 +94,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
       online_store_stock_id: setting.online_store_stock_id?.toString() || '',
       online_store_price_type_id: setting.online_store_price_type_id?.toString() || '',
       online_store_currency_id: setting.online_store_currency_id?.toString() || '1',
+      currency_name: setting.currency_name || 'сум',
     })
     setShowModal(true)
   }
@@ -105,10 +109,11 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         online_store_stock_id: formData.online_store_stock_id ? parseInt(formData.online_store_stock_id) : null,
         online_store_price_type_id: formData.online_store_price_type_id ? parseInt(formData.online_store_price_type_id) : null,
         online_store_currency_id: formData.online_store_currency_id ? parseInt(formData.online_store_currency_id) : 1,
+        currency_name: formData.currency_name || 'сум',
       })
       setShowModal(false)
       setEditingSettings(null)
-      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
+      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
       fetchData()
       onUpdate?.()
     } catch (err: any) {
@@ -155,7 +160,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         <button 
           onClick={() => {
             setEditingSettings(null)
-            setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
+            setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
             setShowModal(true)
           }} 
           className="add-button"
@@ -184,6 +189,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
               <th>Online Store Stock ID</th>
               <th>Online Store Price Type ID</th>
               <th>Online Store Currency ID</th>
+              <th>Currency Name</th>
               <th>Updated At</th>
               <th>Actions</th>
             </tr>
@@ -196,6 +202,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                 <td data-label="Stock ID">{setting.online_store_stock_id || '-'}</td>
                 <td data-label="Price Type ID">{setting.online_store_price_type_id || '-'}</td>
                 <td data-label="Currency ID">{setting.online_store_currency_id}</td>
+                <td data-label="Currency Name">{setting.currency_name || 'сум'}</td>
                 <td data-label="Updated At">{new Date(setting.updated_at).toLocaleString()}</td>
                 <td data-label="Actions">
                   <div className="action-buttons">
@@ -224,7 +231,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         <div className="modal-overlay" onClick={() => {
           setShowModal(false)
           setEditingSettings(null)
-          setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
+          setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingSettings ? 'Edit Bot Settings' : 'Create New Bot Settings'}</h3>
@@ -288,13 +295,23 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                   required
                 />
               </div>
+              <div className="form-group">
+                <label>Currency Name *</label>
+                <input
+                  type="text"
+                  value={formData.currency_name}
+                  onChange={(e) => setFormData({ ...formData, currency_name: e.target.value })}
+                  placeholder="Default: сум"
+                  required
+                />
+              </div>
               <div className="modal-actions">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false)
                     setEditingSettings(null)
-                    setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1' })
+                    setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
                   }}
                   className="cancel-button"
                 >

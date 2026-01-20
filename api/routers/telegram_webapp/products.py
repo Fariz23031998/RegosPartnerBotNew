@@ -18,11 +18,23 @@ router = APIRouter()
 @router.get("/bot-settings")
 async def get_bot_settings_for_user(
     telegram_user_id: int = Query(..., description="Telegram user ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get bot settings for the authenticated Telegram user"""
+    """
+    Get bot settings for the authenticated Telegram user.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own settings.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_bot_settings_for_user: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
         bot_id = bot_info["bot_id"]
         
         db = await get_db()
@@ -33,8 +45,14 @@ async def get_bot_settings_for_user(
             if not bot_settings:
                 return {
                     "ok": True,
-                    "bot_settings": None
+                    "bot_settings": None,
+                    "currency_name": "сум"  # Default fallback
                 }
+            
+            # Return currency_name from database, or default if None/empty
+            currency_name = bot_settings.currency_name
+            if not currency_name or (isinstance(currency_name, str) and currency_name.strip() == ""):
+                currency_name = "сум"
             
             return {
                 "ok": True,
@@ -43,7 +61,8 @@ async def get_bot_settings_for_user(
                     "bot_id": bot_settings.bot_id,
                     "online_store_stock_id": bot_settings.online_store_stock_id,
                     "online_store_price_type_id": bot_settings.online_store_price_type_id
-                }
+                },
+                "currency_name": currency_name
             }
     except HTTPException:
         raise
@@ -63,13 +82,33 @@ async def get_products(
     filter_type: Optional[str] = Query(None, description="Filter type: in-stock, low-stock, cheap, expensive"),
     limit: int = Query(20, description="Limit"),
     offset: int = Query(0, description="Offset"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get products for online store"""
+    """
+    Get products for online store.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own data.
+    Users of one bot cannot see products from other bots.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
-        regos_token = bot_info["regos_integration_token"]
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_products: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        # Get bot info and regos_integration_token from database
+        # This ensures we use the regos_integration_token stored in the database for the specific bot
+        logger.info(f"get_products called: telegram_user_id={telegram_user_id}, bot_name={bot_name}")
+        
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
+        regos_token = bot_info["regos_integration_token"]  # Retrieved from database
         bot_id = bot_info["bot_id"]
+        returned_bot_name = bot_info.get("bot_name", "N/A")
+        
+        logger.info(f"Fetching products for bot_id={bot_id}, bot_name={returned_bot_name}, using regos_integration_token from database")
         
         # Get bot settings
         db = await get_db()
@@ -182,11 +221,12 @@ async def get_products(
         if filters:
             request_data["filters"] = filters
         
-        # Fetch products
+        # Fetch products using the regos_integration_token from database
+        # This token is specific to the bot and retrieved from the bots table
         response = await regos_async_api_request(
             endpoint="Item/GetExt",
             request_data=request_data,
-            token=regos_token,
+            token=regos_token,  # regos_integration_token from database
             timeout_seconds=30
         )
         
@@ -215,13 +255,29 @@ async def get_products(
 @router.get("/product-groups")
 async def get_product_groups(
     telegram_user_id: int = Query(..., description="Telegram user ID"),
-    bot_token: Optional[str] = Query(None, description="Bot token (optional)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
 ):
-    """Get product groups for filtering"""
+    """
+    Get product groups for filtering.
+    
+    SECURITY: bot_name is REQUIRED. Each bot must only access its own data.
+    """
     try:
-        bot_info = await verify_telegram_user(telegram_user_id, bot_token)
-        regos_token = bot_info["regos_integration_token"]
+        # SECURITY: bot_name is REQUIRED
+        if not bot_name or not bot_name.strip():
+            logger.error("get_product_groups: bot_name is REQUIRED for security")
+            raise HTTPException(
+                status_code=400,
+                detail="bot_name is required. Each bot must only access its own data."
+            )
+        
+        # Get bot info and regos_integration_token from database
+        # This ensures we use the regos_integration_token stored in the database for the specific bot
+        bot_info = await verify_telegram_user(telegram_user_id, bot_name)
+        regos_token = bot_info["regos_integration_token"]  # Retrieved from database
         bot_id = bot_info["bot_id"]
+        
+        logger.info(f"Fetching product groups for bot_id={bot_id} using regos_integration_token from database")
         
         # Get bot settings
         db = await get_db()
@@ -255,10 +311,12 @@ async def get_product_groups(
             "image_size": "Small"
         }
         
+        # Fetch product groups using the regos_integration_token from database
+        # This token is specific to the bot and retrieved from the bots table
         response = await regos_async_api_request(
             endpoint="Item/GetExt",
             request_data=request_data,
-            token=regos_token,
+            token=regos_token,  # regos_integration_token from database
             timeout_seconds=30
         )
         
