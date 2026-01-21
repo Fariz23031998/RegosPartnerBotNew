@@ -20,7 +20,10 @@ class BotSettingsRepository:
         online_store_stock_id: Optional[int] = None,
         online_store_price_type_id: Optional[int] = None,
         online_store_currency_id: int = 1,
-        currency_name: Optional[str] = None
+        currency_name: Optional[str] = None,
+        show_online_store: bool = True,
+        can_register: bool = False,
+        partner_group_id: int = 1
     ) -> BotSettings:
         """Create new bot settings"""
         bot_settings = BotSettings(
@@ -28,7 +31,10 @@ class BotSettingsRepository:
             online_store_stock_id=online_store_stock_id,
             online_store_price_type_id=online_store_price_type_id,
             online_store_currency_id=online_store_currency_id,
-            currency_name=currency_name or "сум"
+            currency_name=currency_name or "сум",
+            show_online_store=show_online_store,
+            can_register=can_register,
+            partner_group_id=partner_group_id
         )
         self.session.add(bot_settings)
         await self.session.commit()
@@ -60,7 +66,10 @@ class BotSettingsRepository:
         online_store_stock_id: Optional[int] = None,
         online_store_price_type_id: Optional[int] = None,
         online_store_currency_id: Optional[int] = None,
-        currency_name: Optional[str] = None
+        currency_name: Optional[str] = None,
+        show_online_store: Optional[bool] = None,
+        can_register: Optional[bool] = None,
+        partner_group_id: Optional[int] = None
     ) -> Optional[BotSettings]:
         """Update bot settings"""
         update_values = {}
@@ -72,6 +81,12 @@ class BotSettingsRepository:
             update_values["online_store_currency_id"] = online_store_currency_id
         if currency_name is not None:
             update_values["currency_name"] = currency_name
+        if show_online_store is not None:
+            update_values["show_online_store"] = show_online_store
+        if can_register is not None:
+            update_values["can_register"] = can_register
+        if partner_group_id is not None:
+            update_values["partner_group_id"] = partner_group_id
         
         if update_values:
             await self.session.execute(
@@ -96,7 +111,10 @@ class BotSettingsRepository:
         online_store_stock_id: Optional[int] = None,
         online_store_price_type_id: Optional[int] = None,
         online_store_currency_id: Optional[int] = None,
-        currency_name: Optional[str] = None
+        currency_name: Optional[str] = None,
+        show_online_store: Optional[bool] = None,
+        can_register: Optional[bool] = None,
+        partner_group_id: Optional[int] = None
     ) -> Optional[BotSettings]:
         """Update bot settings by bot ID"""
         update_values = {}
@@ -108,6 +126,12 @@ class BotSettingsRepository:
             update_values["online_store_currency_id"] = online_store_currency_id
         if currency_name is not None:
             update_values["currency_name"] = currency_name
+        if show_online_store is not None:
+            update_values["show_online_store"] = show_online_store
+        if can_register is not None:
+            update_values["can_register"] = can_register
+        if partner_group_id is not None:
+            update_values["partner_group_id"] = partner_group_id
         
         if update_values:
             await self.session.execute(

@@ -60,6 +60,9 @@ class BotSettingsCreate(BaseModel):
     online_store_price_type_id: Optional[int] = None
     online_store_currency_id: int = 1
     currency_name: Optional[str] = "сум"
+    show_online_store: bool = True
+    can_register: bool = False
+    partner_group_id: int = 1
 
 
 class BotSettingsUpdate(BaseModel):
@@ -67,6 +70,9 @@ class BotSettingsUpdate(BaseModel):
     online_store_price_type_id: Optional[int] = None
     online_store_currency_id: Optional[int] = None
     currency_name: Optional[str] = None
+    show_online_store: Optional[bool] = None
+    can_register: Optional[bool] = None
+    partner_group_id: Optional[int] = None
 
 
 class BotSettingsResponse(BaseModel):
@@ -76,6 +82,9 @@ class BotSettingsResponse(BaseModel):
     online_store_price_type_id: Optional[int]
     online_store_currency_id: int
     currency_name: Optional[str]
+    show_online_store: bool
+    can_register: bool
+    partner_group_id: int
     created_at: str
     updated_at: str
 

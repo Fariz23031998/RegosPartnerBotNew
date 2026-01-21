@@ -49,6 +49,8 @@ class Database:
         # Run migrations for existing tables
         await self._migrate_subscription_fields()
         await self._migrate_unique_constraints()
+        await self._migrate_show_online_store()
+        await self._migrate_registration_fields()
     
     async def _migrate_subscription_fields(self):
         """Add subscription fields to existing bots table if they don't exist"""
@@ -216,6 +218,84 @@ class Database:
             logger.error(f"Error during uniqueness constraints migration: {e}", exc_info=True)
             # Don't raise - allow app to continue even if migration fails
             # (constraints might already exist)
+    
+    async def _migrate_show_online_store(self):
+        """Add show_online_store field to bot_settings table if it doesn't exist"""
+        import logging
+        from sqlalchemy import text
+        logger = logging.getLogger(__name__)
+        
+        try:
+            async with self.engine.begin() as conn:
+                # Check if bot_settings table exists
+                table_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='bot_settings'")
+                )
+                if not table_check.fetchone():
+                    logger.info("Bot_settings table does not exist yet, skipping show_online_store migration")
+                    return
+                
+                # Check if show_online_store column exists
+                result = await conn.execute(text("PRAGMA table_info(bot_settings)"))
+                rows = result.fetchall()
+                columns = [row[1] for row in rows] if rows else []
+                
+                # Add show_online_store if it doesn't exist
+                if 'show_online_store' not in columns:
+                    logger.info("Adding show_online_store column to bot_settings table")
+                    await conn.execute(
+                        text("ALTER TABLE bot_settings ADD COLUMN show_online_store BOOLEAN NOT NULL DEFAULT 1")
+                    )
+                    logger.info("Added show_online_store column to bot_settings table")
+                
+                logger.info("show_online_store migration completed successfully")
+        except Exception as e:
+            logger.error(f"Error during show_online_store migration: {e}", exc_info=True)
+            # Don't raise - allow app to continue even if migration fails
+            # (column might already exist)
+    
+    async def _migrate_registration_fields(self):
+        """Add can_register and partner_group_id fields to bot_settings table if they don't exist"""
+        import logging
+        from sqlalchemy import text
+        logger = logging.getLogger(__name__)
+        
+        try:
+            async with self.engine.begin() as conn:
+                # Check if bot_settings table exists
+                table_check = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name='bot_settings'")
+                )
+                if not table_check.fetchone():
+                    logger.info("Bot_settings table does not exist yet, skipping registration fields migration")
+                    return
+                
+                # Check if columns exist
+                result = await conn.execute(text("PRAGMA table_info(bot_settings)"))
+                rows = result.fetchall()
+                columns = [row[1] for row in rows] if rows else []
+                
+                # Add can_register if it doesn't exist
+                if 'can_register' not in columns:
+                    logger.info("Adding can_register column to bot_settings table")
+                    await conn.execute(
+                        text("ALTER TABLE bot_settings ADD COLUMN can_register BOOLEAN NOT NULL DEFAULT 0")
+                    )
+                    logger.info("Added can_register column to bot_settings table")
+                
+                # Add partner_group_id if it doesn't exist
+                if 'partner_group_id' not in columns:
+                    logger.info("Adding partner_group_id column to bot_settings table")
+                    await conn.execute(
+                        text("ALTER TABLE bot_settings ADD COLUMN partner_group_id INTEGER NOT NULL DEFAULT 1")
+                    )
+                    logger.info("Added partner_group_id column to bot_settings table")
+                
+                logger.info("Registration fields migration completed successfully")
+        except Exception as e:
+            logger.error(f"Error during registration fields migration: {e}", exc_info=True)
+            # Don't raise - allow app to continue even if migration fails
+            # (columns might already exist)
     
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get async session (context manager)"""

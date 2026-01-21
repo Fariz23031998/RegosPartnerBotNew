@@ -46,7 +46,8 @@ async def get_bot_settings_for_user(
                 return {
                     "ok": True,
                     "bot_settings": None,
-                    "currency_name": "сум"  # Default fallback
+                    "currency_name": "сум",  # Default fallback
+                    "show_online_store": True  # Default fallback
                 }
             
             # Return currency_name from database, or default if None/empty
@@ -62,7 +63,8 @@ async def get_bot_settings_for_user(
                     "online_store_stock_id": bot_settings.online_store_stock_id,
                     "online_store_price_type_id": bot_settings.online_store_price_type_id
                 },
-                "currency_name": currency_name
+                "currency_name": currency_name,
+                "show_online_store": bot_settings.show_online_store
             }
     except HTTPException:
         raise

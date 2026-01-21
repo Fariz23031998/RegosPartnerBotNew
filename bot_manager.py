@@ -25,12 +25,18 @@ class BotManager:
     def __init__(self):
         self.bots: Dict[str, dict] = {}  # token -> bot_info
         self.webhook_url_base: Optional[str] = None
+        # Temporary storage for registration data (chat_id -> registration_data)
+        # Cleared after registration or timeout
+        self.pending_registrations: Dict[int, dict] = {}
+        # Temporary storage for registration data (chat_id -> registration_data)
+        # Cleared after registration or timeout
+        self.pending_registrations: Dict[int, dict] = {}
     
     def set_webhook_base_url(self, base_url: str):
         """Set the base URL for webhooks"""
         self.webhook_url_base = base_url.rstrip('/')
     
-    async def register_bot(self, token: str, bot_name: Optional[str] = None) -> dict:
+    async def register_bot(self, token: str, bot_name: Optional[str] = None, bot_id: Optional[int] = None) -> dict:
         """Register a new bot and set up its webhook"""
         if token in self.bots:
             logger.warning(f"Bot with token {token[:10]}... already registered, re-setting webhook...")
@@ -65,6 +71,7 @@ class BotManager:
             "token": token,
             "bot_name": bot_name or bot_info.get("username", "Unknown"),
             "bot_info": bot_info,
+            "bot_id": bot_id,
             "registered_at": datetime.utcnow()
         }
         
@@ -135,6 +142,36 @@ class BotManager:
         logger.info(f"Processing update for bot {bot_name} (token: {token[:10]}...)")
         logger.debug(f"Update structure: message={'message' in update}, callback_query={'callback_query' in update}")
         
+        # Handle callback query updates (button clicks)
+        if "callback_query" in update:
+            callback_query = update["callback_query"]
+            callback_data = callback_query.get("data", "")
+            chat_id = callback_query.get("message", {}).get("chat", {}).get("id")
+            from_user = callback_query.get("from", {})
+            user_id = from_user.get("id")
+            
+            logger.info(f"Received callback query: data='{callback_data}', chat_id={chat_id}, user_id={user_id}")
+            
+            # Handle registration confirmation callbacks
+            if callback_data.startswith("register_yes_") or callback_data.startswith("register_no_"):
+                callback_query_id = callback_query.get("id")
+                result = await self.handle_registration_callback(
+                    token,
+                    callback_data,
+                    chat_id,
+                    user_id,
+                    regos_integration_token,
+                    bot_id=bot_data.get("bot_id"),
+                    callback_query_id=callback_query_id
+                )
+                # Answer callback query after handling
+                await self.answer_callback_query(token, callback_query_id, "")
+                return result
+            
+            # Answer callback query to remove loading state
+            await self.answer_callback_query(token, callback_query.get("id"))
+            return None
+        
         # Handle message updates
         if "message" in update:
             message = update["message"]
@@ -160,11 +197,19 @@ class BotManager:
                 # contact_user_id might be None for contacts that don't have Telegram account
                 # In that case, we still process the contact if it was sent by the user
                 if contact_user_id is None or contact_user_id == message_from_id:
+                    bot_id = bot_data.get("bot_id")
+                    # Get user info from message
+                    from_user = message.get("from", {})
+                    user_first_name = from_user.get("first_name", "Партнер")
+                    user_last_name = from_user.get("last_name", "")
                     return await self.handle_contact_shared(
                         token, 
                         chat_id, 
                         phone_number, 
-                        regos_integration_token
+                        regos_integration_token,
+                        bot_id,
+                        user_first_name,
+                        user_last_name
                     )
                 else:
                     return await self.send_message(
@@ -178,7 +223,8 @@ class BotManager:
             if text == "/start" or text.startswith("/start"):
                 logger.info(f"Handling /start command for chat {chat_id}")
                 try:
-                    result = await self.handle_start_command(token, chat_id, regos_integration_token)
+                    bot_id = bot_data.get("bot_id")
+                    result = await self.handle_start_command(token, chat_id, regos_integration_token, bot_id)
                     if result:
                         logger.info(f"Successfully handled /start command for chat {chat_id}")
                     else:
@@ -319,48 +365,190 @@ class BotManager:
                 logger.error(f"Error sending document: {e}", exc_info=True)
                 return None
     
+    async def answer_callback_query(
+        self,
+        token: str,
+        callback_query_id: str,
+        text: Optional[str] = None,
+        show_alert: bool = False
+    ) -> bool:
+        """Answer a callback query to remove loading state"""
+        try:
+            url = f"https://api.telegram.org/bot{token}/answerCallbackQuery"
+            data = {
+                "callback_query_id": callback_query_id
+            }
+            if text:
+                data["text"] = text
+            if show_alert:
+                data["show_alert"] = True
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=data)
+                result = response.json()
+                if result.get("ok"):
+                    return True
+                else:
+                    logger.error(f"Failed to answer callback query: {result}")
+                    return False
+        except Exception as e:
+            logger.error(f"Error answering callback query: {e}", exc_info=True)
+            return False
+    
+    async def handle_registration_callback(
+        self,
+        token: str,
+        callback_data: str,
+        chat_id: int,
+        user_id: int,
+        regos_integration_token: Optional[str],
+        bot_id: Optional[int] = None,
+        callback_query_id: Optional[str] = None
+    ) -> Optional[dict]:
+        """Handle registration confirmation callback"""
+        logger.info(f"Handling registration callback: {callback_data}, chat_id={chat_id}, user_id={user_id}")
+        
+        if callback_data.startswith("register_no_"):
+            # User declined registration - clear pending registration data
+            if chat_id in self.pending_registrations:
+                del self.pending_registrations[chat_id]
+            if callback_query_id:
+                await self.answer_callback_query(token, callback_query_id, "Отменено")
+            return await self.send_message(
+                token,
+                chat_id,
+                "Хорошо, если передумаете, отправьте команду /start снова."
+            )
+        
+        if not callback_data.startswith("register_yes_"):
+            if callback_query_id:
+                await self.answer_callback_query(token, callback_query_id, "")
+            return None
+        
+        # User confirmed registration - get registration data from temporary storage
+        if not regos_integration_token:
+            if callback_query_id:
+                await self.answer_callback_query(token, callback_query_id, "Ошибка: интеграция не настроена")
+            return await self.send_message(
+                token,
+                chat_id,
+                "Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору."
+            )
+        
+        # Get registration data from temporary storage
+        registration_data = self.pending_registrations.get(chat_id)
+        if not registration_data:
+            logger.error(f"No pending registration data found for chat_id={chat_id}")
+            if callback_query_id:
+                await self.answer_callback_query(token, callback_query_id, "Ошибка: данные не найдены")
+            return await self.send_message(
+                token,
+                chat_id,
+                "❌ Произошла ошибка. Пожалуйста, отправьте команду /start снова и поделитесь контактом."
+            )
+        
+        phone_number = registration_data.get("phone")
+        user_first_name = registration_data.get("first_name", "Партнер")
+        user_last_name = registration_data.get("last_name", "")
+        stored_bot_id = registration_data.get("bot_id")
+        
+        # Use stored bot_id if available, otherwise use passed bot_id
+        if stored_bot_id:
+            bot_id = stored_bot_id
+        
+        # Clear pending registration data
+        del self.pending_registrations[chat_id]
+        
+        # Get bot settings for partner_group_id
+        partner_group_id = 1
+        if bot_id:
+            try:
+                from database import get_db
+                from database.repositories import BotSettingsRepository
+                db = await get_db()
+                async with db.async_session_maker() as session:
+                    settings_repo = BotSettingsRepository(session)
+                    bot_settings = await settings_repo.get_by_bot_id(bot_id)
+                    if bot_settings:
+                        partner_group_id = bot_settings.partner_group_id
+            except Exception as e:
+                logger.error(f"Error fetching bot settings: {e}", exc_info=True)
+        
+        if callback_query_id:
+            await self.answer_callback_query(token, callback_query_id, "Регистрация...")
+        
+        # Register partner directly (we already have contact info from when they shared it)
+        from regos.partner import register_partner
+        
+        await self.send_message(token, chat_id, "📝 Регистрация нового партнера...")
+        
+        # Use provided user names
+        full_name = f"{user_first_name} {user_last_name}".strip() if user_last_name else user_first_name
+        
+        # Register partner
+        registration_result = await register_partner(
+            regos_integration_token,
+            partner_group_id,
+            user_first_name,
+            full_name,
+            phone_number,
+            str(chat_id)
+        )
+        
+        if registration_result and registration_result.get("ok"):
+            new_partner_id = registration_result.get("new_id")
+            return await self.send_message(
+                token,
+                chat_id,
+                f"✅ Регистрация успешна!\n\n"
+                f"Вы зарегистрированы как новый партнер.\n"
+                f"ID партнера: {new_partner_id}\n"
+                f"Теперь вы будете получать уведомления через этого бота."
+            )
+        else:
+            return await self.send_message(
+                token,
+                chat_id,
+                "❌ Произошла ошибка при регистрации.\n\n"
+                "Пожалуйста, попробуйте еще раз или обратитесь к администратору."
+            )
+    
     async def handle_start_command(
         self, 
         token: str, 
         chat_id: int, 
-        regos_integration_token: Optional[str]
+        regos_integration_token: Optional[str],
+        bot_id: Optional[int] = None
     ) -> Optional[dict]:
-        """Handle /start command - check if user is already registered, otherwise request contact"""
-        logger.info(f"handle_start_command called: chat_id={chat_id}, has_regos_token={regos_integration_token is not None}")
+        """Handle /start command - request contact to check if user exists by phone number"""
+        logger.info(f"handle_start_command called: chat_id={chat_id}, has_regos_token={regos_integration_token is not None}, bot_id={bot_id}")
         
-        # Check if user is already registered (Telegram chat ID matches partner's oked field)
-        if regos_integration_token:
+        if not regos_integration_token:
+            logger.warning(f"No REGOS integration token provided for bot")
+            return await self.send_message(
+                token,
+                chat_id,
+                "Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору."
+            )
+        
+        # Get bot settings to check can_register
+        can_register = False
+        if bot_id:
             try:
-                from regos.partner import search_partner_by_telegram_id
-                
-                logger.info(f"Searching for partner with Telegram chat ID: {chat_id}")
-                partner = await search_partner_by_telegram_id(
-                    regos_integration_token,
-                    str(chat_id)
-                )
-                
-                if partner:
-                    # User is already registered
-                    partner_name = partner.get("name", "Партнер")
-                    partner_id = partner.get("id")
-                    logger.info(f"Partner found: {partner_id} ({partner_name})")
-                    return await self.send_message(
-                        token,
-                        chat_id,
-                        f"✅ Вы уже зарегистрированы, {partner_name}!\n\n"
-                        f"Ваш Telegram аккаунт уже привязан к вашему профилю в системе.\n"
-                        f"ID партнера: {partner_id}\n\n"
-                        f"Вы будете получать уведомления через этого бота."
-                    )
-                else:
-                    logger.info(f"No partner found with Telegram chat ID: {chat_id}, requesting contact")
+                from database import get_db
+                from database.repositories import BotSettingsRepository
+                db = await get_db()
+                async with db.async_session_maker() as session:
+                    settings_repo = BotSettingsRepository(session)
+                    bot_settings = await settings_repo.get_by_bot_id(bot_id)
+                    if bot_settings:
+                        can_register = bot_settings.can_register
+                        logger.info(f"Bot settings: can_register={can_register}")
             except Exception as e:
-                logger.error(f"Error checking if user is registered: {e}", exc_info=True)
-                # Continue with normal flow if check fails
-        else:
-            logger.warning(f"No REGOS integration token provided for bot, skipping partner check")
+                logger.error(f"Error fetching bot settings: {e}", exc_info=True)
         
-        # User is not registered, request contact
+        # Always request contact first - we'll check by phone number in handle_contact_shared
+        # After checking, if not found and can_register is true, we'll show registration confirmation
         welcome_text = (
             "Добро пожаловать! 👋\n\n"
             "Для продолжения работы, пожалуйста, поделитесь своим контактом, "
@@ -399,9 +587,12 @@ class BotManager:
         token: str,
         chat_id: int,
         phone_number: str,
-        regos_integration_token: Optional[str]
+        regos_integration_token: Optional[str],
+        bot_id: Optional[int] = None,
+        user_first_name: str = "Партнер",
+        user_last_name: str = ""
     ) -> Optional[dict]:
-        """Handle contact sharing - search partner and update REGOS"""
+        """Handle contact sharing - search partner and update REGOS, or register if not found"""
         if not regos_integration_token:
             return await self.send_message(
                 token,
@@ -411,29 +602,108 @@ class BotManager:
         
         try:
             # Import REGOS partner functions
-            from regos.partner import search_partner_by_phone, update_partner_telegram_id
+            from regos.partner import search_partner_by_phone, update_partner_telegram_id, register_partner
+            
+            # Get bot settings to check can_register and partner_group_id
+            can_register = False
+            partner_group_id = 1
+            if bot_id:
+                try:
+                    from database import get_db
+                    from database.repositories import BotSettingsRepository
+                    db = await get_db()
+                    async with db.async_session_maker() as session:
+                        settings_repo = BotSettingsRepository(session)
+                        bot_settings = await settings_repo.get_by_bot_id(bot_id)
+                        if bot_settings:
+                            can_register = bot_settings.can_register
+                            partner_group_id = bot_settings.partner_group_id
+                            logger.info(f"Bot settings loaded: can_register={can_register}, partner_group_id={partner_group_id}")
+                        else:
+                            logger.warning(f"No bot settings found for bot_id={bot_id}")
+                except Exception as e:
+                    logger.error(f"Error fetching bot settings: {e}", exc_info=True)
+            else:
+                logger.warning(f"bot_id is None, cannot fetch bot settings. Defaulting can_register=False")
             
             # Show processing message
-            await self.send_message(token, chat_id, "🔍 Поиск вашего аккаунта в системе...")
+            await self.send_message(token, chat_id, "🔍 Поиск вашего аккаунта в системе по номеру телефона...")
             
-            # Search for partner by phone number
+            # Search for partner by phone number (this is how we determine if user exists)
             partner = await search_partner_by_phone(regos_integration_token, phone_number)
             
+            logger.info(f"Partner search result: found={partner is not None}, can_register={can_register}, bot_id={bot_id}")
+            
             if not partner:
-                # Partner not found
+                # Partner not found by phone number - check if we can register
+                logger.info(f"Partner not found by phone {phone_number}. Checking can_register={can_register}")
+                if can_register:
+                    # Store registration data temporarily (will be used when user clicks "Да")
+                    registration_data = {
+                        "phone": phone_number,
+                        "first_name": user_first_name,
+                        "last_name": user_last_name,
+                        "chat_id": chat_id,
+                        "bot_id": bot_id
+                    }
+                    self.pending_registrations[chat_id] = registration_data
+                    logger.info(f"Stored registration data for chat_id={chat_id}, phone={phone_number}")
+                    
+                    welcome_text = (
+                        "Вы не зарегистрированы. Хотите зарегистрироваться сейчас?"
+                    )
+                    
+                    # Create inline keyboard with Да and Нет buttons
+                    # Use simple callback_data (chat_id only) since we store data in memory
+                    keyboard = {
+                        "inline_keyboard": [[
+                            {
+                                "text": "Да",
+                                "callback_data": f"register_yes_{chat_id}"
+                            },
+                            {
+                                "text": "Нет",
+                                "callback_data": f"register_no_{chat_id}"
+                            }
+                        ]]
+                    }
+                    
+                    return await self.send_message(
+                        token,
+                        chat_id,
+                        welcome_text,
+                        reply_markup=keyboard
+                    )
+                else:
+                    # Partner not found by phone number and registration not allowed
+                    return await self.send_message(
+                        token,
+                        chat_id,
+                        "❌ Извините, ваш аккаунт не найден в системе по номеру телефона.\n\n"
+                        "Пожалуйста, убедитесь, что вы зарегистрированы как партнер в REGOS, "
+                        "или обратитесь к администратору для регистрации."
+                    )
+            
+            # Partner found by phone number - user exists in system
+            partner_id = partner.get("id")
+            partner_name = partner.get("name", "Партнер")
+            partner_oked = partner.get("oked", "")
+            
+            # Check if this Telegram ID is already linked to this partner
+            if partner_oked and str(partner_oked) == str(chat_id):
+                # Already linked - user is already registered
+                logger.info(f"Partner {partner_id} ({partner_name}) already linked to Telegram chat ID: {chat_id}")
                 return await self.send_message(
                     token,
                     chat_id,
-                    "❌ Извините, ваш аккаунт не найден в системе.\n\n"
-                    "Пожалуйста, убедитесь, что вы зарегистрированы как партнер в REGOS, "
-                    "или обратитесь к администратору для регистрации."
+                    f"✅ Вы уже зарегистрированы, {partner_name}!\n\n"
+                    f"Ваш Telegram аккаунт уже привязан к вашему профилю в системе.\n"
+                    f"ID партнера: {partner_id}\n\n"
+                    f"Вы будете получать уведомления через этого бота."
                 )
             
-            # Partner found - update with Telegram chat ID
-            partner_id = partner.get("id")
-            partner_name = partner.get("name", "Партнер")
-            
-            logger.info(f"Found partner {partner_id} ({partner_name}), updating with Telegram chat ID: {chat_id}")
+            # Partner found by phone number but not linked to this Telegram ID - update it
+            logger.info(f"Found partner {partner_id} ({partner_name}) by phone number {phone_number}, updating with Telegram chat ID: {chat_id}")
             
             # Update partner's oked field with Telegram chat ID
             success = await update_partner_telegram_id(
@@ -456,7 +726,7 @@ class BotManager:
                 return await self.send_message(
                     token,
                     chat_id,
-                    "⚠️ Ваш аккаунт найден, но произошла ошибка при привязке Telegram.\n\n"
+                    "⚠️ Ваш аккаунт найден по номеру телефона, но произошла ошибка при привязке Telegram.\n\n"
                     "Пожалуйста, попробуйте еще раз или обратитесь к администратору."
                 )
                 

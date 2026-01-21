@@ -9,6 +9,9 @@ interface BotSettings {
   online_store_price_type_id: number | null
   online_store_currency_id: number
   currency_name: string | null
+  show_online_store: boolean
+  can_register: boolean
+  partner_group_id: number
   created_at: string
   updated_at: string
 }
@@ -34,7 +37,10 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
     online_store_stock_id: '', 
     online_store_price_type_id: '',
     online_store_currency_id: '1',
-    currency_name: 'сум'
+    currency_name: 'сум',
+    show_online_store: true,
+    can_register: false,
+    partner_group_id: 1
   })
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
@@ -77,9 +83,12 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         online_store_price_type_id: formData.online_store_price_type_id ? parseInt(formData.online_store_price_type_id) : null,
         online_store_currency_id: formData.online_store_currency_id ? parseInt(formData.online_store_currency_id) : 1,
         currency_name: formData.currency_name || 'сум',
+        show_online_store: formData.show_online_store,
+        can_register: formData.can_register,
+        partner_group_id: formData.partner_group_id ? parseInt(formData.partner_group_id.toString()) : 1,
       })
       setShowModal(false)
-      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
+      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
       fetchData()
       onUpdate?.()
     } catch (err: any) {
@@ -95,6 +104,9 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
       online_store_price_type_id: setting.online_store_price_type_id?.toString() || '',
       online_store_currency_id: setting.online_store_currency_id?.toString() || '1',
       currency_name: setting.currency_name || 'сум',
+      show_online_store: setting.show_online_store ?? true,
+      can_register: setting.can_register ?? false,
+      partner_group_id: setting.partner_group_id ?? 1,
     })
     setShowModal(true)
   }
@@ -110,10 +122,13 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         online_store_price_type_id: formData.online_store_price_type_id ? parseInt(formData.online_store_price_type_id) : null,
         online_store_currency_id: formData.online_store_currency_id ? parseInt(formData.online_store_currency_id) : 1,
         currency_name: formData.currency_name || 'сум',
+        show_online_store: formData.show_online_store,
+        can_register: formData.can_register,
+        partner_group_id: formData.partner_group_id ? parseInt(formData.partner_group_id.toString()) : 1,
       })
       setShowModal(false)
       setEditingSettings(null)
-      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
+      setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
       fetchData()
       onUpdate?.()
     } catch (err: any) {
@@ -160,7 +175,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         <button 
           onClick={() => {
             setEditingSettings(null)
-            setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
+            setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
             setShowModal(true)
           }} 
           className="add-button"
@@ -190,6 +205,9 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
               <th>Online Store Price Type ID</th>
               <th>Online Store Currency ID</th>
               <th>Currency Name</th>
+              <th>Show Online Store</th>
+              <th>Can Register</th>
+              <th>Partner Group ID</th>
               <th>Updated At</th>
               <th>Actions</th>
             </tr>
@@ -203,6 +221,9 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                 <td data-label="Price Type ID">{setting.online_store_price_type_id || '-'}</td>
                 <td data-label="Currency ID">{setting.online_store_currency_id}</td>
                 <td data-label="Currency Name">{setting.currency_name || 'сум'}</td>
+                <td data-label="Show Online Store">{setting.show_online_store ? 'Yes' : 'No'}</td>
+                <td data-label="Can Register">{setting.can_register ? 'Yes' : 'No'}</td>
+                <td data-label="Partner Group ID">{setting.partner_group_id || 1}</td>
                 <td data-label="Updated At">{new Date(setting.updated_at).toLocaleString()}</td>
                 <td data-label="Actions">
                   <div className="action-buttons">
@@ -231,7 +252,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         <div className="modal-overlay" onClick={() => {
           setShowModal(false)
           setEditingSettings(null)
-          setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
+          setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingSettings ? 'Edit Bot Settings' : 'Create New Bot Settings'}</h3>
@@ -305,13 +326,44 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                   required
                 />
               </div>
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={formData.show_online_store}
+                    onChange={(e) => setFormData({ ...formData, show_online_store: e.target.checked })}
+                  />
+                  {' '}Show Online Store
+                </label>
+              </div>
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={formData.can_register}
+                    onChange={(e) => setFormData({ ...formData, can_register: e.target.checked })}
+                  />
+                  {' '}Can Register
+                </label>
+              </div>
+              <div className="form-group">
+                <label>Partner Group ID *</label>
+                <input
+                  type="number"
+                  value={formData.partner_group_id}
+                  onChange={(e) => setFormData({ ...formData, partner_group_id: parseInt(e.target.value) || 1 })}
+                  placeholder="Default: 1"
+                  min="1"
+                  required
+                />
+              </div>
               <div className="modal-actions">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false)
                     setEditingSettings(null)
-                    setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум' })
+                    setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
                   }}
                   className="cancel-button"
                 >

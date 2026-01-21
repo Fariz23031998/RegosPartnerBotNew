@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
         logger.info(f"Loading {len(active_bots)} active bot(s) from database...")
         for bot in active_bots:
             try:
-                await bot_manager.register_bot(bot.telegram_token, bot.bot_name)
+                await bot_manager.register_bot(bot.telegram_token, bot.bot_name, bot.bot_id)
                 logger.info(f"Successfully loaded and registered bot: {bot.bot_name or bot.telegram_token[:10]}")
             except Exception as e:
                 logger.error(f"Failed to load bot {bot.telegram_token[:10]}...: {e}", exc_info=True)

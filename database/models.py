@@ -113,6 +113,9 @@ class BotSettings(Base):
     online_store_price_type_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     online_store_currency_id: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     currency_name: Mapped[Optional[str]] = mapped_column(String, nullable=True, default="сум")
+    show_online_store: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    can_register: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    partner_group_id: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(),
         server_default=func.now(),
@@ -136,6 +139,9 @@ class BotSettings(Base):
             "online_store_price_type_id": self.online_store_price_type_id,
             "online_store_currency_id": self.online_store_currency_id,
             "currency_name": self.currency_name,
+            "show_online_store": self.show_online_store,
+            "can_register": self.can_register,
+            "partner_group_id": self.partner_group_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

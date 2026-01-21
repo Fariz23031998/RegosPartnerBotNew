@@ -40,6 +40,7 @@ function AppContent() {
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [botName, setBotName] = useState<string | null>(null)
   const [currencyName, setCurrencyName] = useState<string>('сум')
+  const [showOnlineStore, setShowOnlineStore] = useState<boolean>(true)
   const [currentPage, setCurrentPage] = useState<Page>('home')
 
   useEffect(() => {
@@ -128,8 +129,8 @@ function AppContent() {
         const finalBotName = data.bot_name || botName
         if (finalBotName) {
           setBotName(finalBotName)
-          // Fetch bot settings to get currency_name immediately after auth
-          fetchCurrencyName(finalBotName, userId)
+          // Fetch bot settings to get currency_name and show_online_store immediately after auth
+          fetchBotSettings(finalBotName, userId)
         }
         // If partner_id is not found, user will need to enter it
       } else {
@@ -142,59 +143,58 @@ function AppContent() {
     }
   }
 
-  const fetchCurrencyName = async (currentBotName: string, userId: number) => {
+  const fetchBotSettings = async (currentBotName: string, userId: number) => {
     try {
       const url = new URL('/telegram-webapp/bot-settings', window.location.origin)
       url.searchParams.set('telegram_user_id', userId.toString())
       url.searchParams.set('bot_name', encodeURIComponent(currentBotName))
       
-      console.log('Fetching currency name from:', url.pathname + url.search)
+      console.log('Fetching bot settings from:', url.pathname + url.search)
       
       const response = await apiFetch(url.pathname + url.search)
       
       if (!response.ok) {
-        console.error(`Failed to fetch currency name: HTTP ${response.status}`)
+        console.error(`Failed to fetch bot settings: HTTP ${response.status}`)
         return
       }
       
       const data = await response.json()
       
-      console.log('Bot settings response:', JSON.stringify(data, null, 2)) // Debug log with full JSON
-      console.log('Response keys:', Object.keys(data))
-      console.log('currency_name in response:', data.currency_name)
-      console.log('Has currency_name?', 'currency_name' in data)
+      console.log('Bot settings response:', JSON.stringify(data, null, 2))
       
       if (data.ok) {
-        // Always update currency_name if provided in response (even if it's the default "сум")
-        // This ensures we get the latest value from the database
+        // Update currency_name if provided in response
         if (data.currency_name !== undefined && data.currency_name !== null) {
           const currency = String(data.currency_name).trim()
           console.log('Setting currency name to:', currency)
           setCurrencyName(currency)
+        } else if (data.bot_settings && data.bot_settings.currency_name) {
+          console.log('Found currency_name in bot_settings:', data.bot_settings.currency_name)
+          setCurrencyName(String(data.bot_settings.currency_name).trim())
+        }
+        
+        // Update show_online_store if provided in response
+        if (data.show_online_store !== undefined && data.show_online_store !== null) {
+          console.log('Setting show_online_store to:', data.show_online_store)
+          setShowOnlineStore(Boolean(data.show_online_store))
         } else {
-          console.warn('Currency name is undefined or null in response.')
-          console.warn('Full response object:', data)
-          console.warn('Response keys:', Object.keys(data))
-          // Try to get it from bot_settings if it's nested
-          if (data.bot_settings && data.bot_settings.currency_name) {
-            console.log('Found currency_name in bot_settings:', data.bot_settings.currency_name)
-            setCurrencyName(String(data.bot_settings.currency_name).trim())
-          }
+          // Default to true if not provided
+          setShowOnlineStore(true)
         }
       } else {
         console.warn('Bot settings response not ok:', data)
       }
     } catch (err) {
-      console.error('Error fetching currency name:', err)
-      // Keep default 'сум' if fetch fails
+      console.error('Error fetching bot settings:', err)
+      // Keep defaults if fetch fails
     }
   }
 
-  // Refetch currency name when botName or telegramUserId changes
+  // Refetch bot settings when botName or telegramUserId changes
   useEffect(() => {
     if (botName && telegramUserId && isAuthorized) {
-      console.log('Refetching currency name for bot:', botName)
-      fetchCurrencyName(botName, telegramUserId)
+      console.log('Refetching bot settings for bot:', botName)
+      fetchBotSettings(botName, telegramUserId)
     }
   }, [botName, telegramUserId, isAuthorized])
 
@@ -246,7 +246,7 @@ function AppContent() {
   if (currentPage === 'home') {
   return (
     <div className="app">
-      <HomeScreen onNavigate={handleNavigate} />
+      <HomeScreen onNavigate={handleNavigate} showOnlineStore={showOnlineStore} />
     </div>
   )
   }

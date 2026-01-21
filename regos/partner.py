@@ -248,3 +248,65 @@ async def search_partner_by_telegram_id(
         logger.error(f"Error searching for partner by Telegram ID: {e}", exc_info=True)
         return None
 
+
+async def register_partner(
+    regos_integration_token: str,
+    group_id: int,
+    name: str,
+    full_name: str,
+    phones: str,
+    telegram_user_id: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Register a new partner in REGOS using Partner/Add endpoint.
+    
+    Args:
+        regos_integration_token: REGOS integration token
+        group_id: Partner group ID (from bot settings partner_group_id)
+        name: Partner name (short)
+        full_name: Partner full name
+        phones: Partner phone numbers (comma-separated)
+        telegram_user_id: Telegram user ID to store in oked field
+        
+    Returns:
+        dict: Registration result with new_id if successful, None otherwise
+    """
+    if not regos_integration_token:
+        logger.warning("REGOS integration token not provided")
+        return None
+    
+    try:
+        request_data = {
+            "group_id": group_id,
+            "legal_status": "Legal",
+            "name": name,
+            "fullName": full_name,
+            "phones": phones,
+            "oked": telegram_user_id  # Store Telegram user ID in oked field
+        }
+        
+        logger.info(f"Registering new partner: {name} ({full_name})")
+        response = await regos_async_api_request(
+            endpoint="Partner/Add",
+            request_data=request_data,
+            token=regos_integration_token,
+            timeout_seconds=30
+        )
+        
+        if response.get("ok"):
+            result = response.get("result", {})
+            new_id = result.get("new_id")
+            if new_id:
+                logger.info(f"Successfully registered partner with ID: {new_id}")
+                return {"ok": True, "new_id": new_id}
+            else:
+                logger.warning("Partner registration response missing new_id")
+                return None
+        else:
+            error_msg = response.get("description", response.get("error", "Unknown error"))
+            logger.error(f"Failed to register partner: {error_msg}")
+            return None
+        
+    except Exception as e:
+        logger.error(f"Error registering partner: {e}", exc_info=True)
+        return None

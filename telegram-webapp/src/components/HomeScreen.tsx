@@ -2,9 +2,10 @@ import './HomeScreen.css'
 
 interface HomeScreenProps {
   onNavigate: (page: 'reports' | 'shop') => void
+  showOnlineStore: boolean
 }
 
-function HomeScreen({ onNavigate }: HomeScreenProps) {
+function HomeScreen({ onNavigate, showOnlineStore }: HomeScreenProps) {
   return (
     <div className="home-screen">
       <div className="home-container">
@@ -19,15 +20,17 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
             <span className="icon-label">Отчёты</span>
           </button>
-          <button 
-            className="home-icon-button"
-            onClick={() => onNavigate('shop')}
-          >
-            <div className="icon-wrapper">
-              <span className="icon-large">🛒</span>
-            </div>
-            <span className="icon-label">Магазин</span>
-          </button>
+          {showOnlineStore && (
+            <button 
+              className="home-icon-button"
+              onClick={() => onNavigate('shop')}
+            >
+              <div className="icon-wrapper">
+                <span className="icon-large">🛒</span>
+              </div>
+              <span className="icon-label">Магазин</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
