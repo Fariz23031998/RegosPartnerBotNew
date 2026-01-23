@@ -3,6 +3,7 @@ import { api } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { formatNumber, formatCurrency } from '../utils/formatNumber'
 import './BotManagement.css'
+import { useLanguage } from "../contexts/LanguageContext"
 
 interface Bot {
   bot_id: number
@@ -40,6 +41,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
   const [subscriptionMonths, setSubscriptionMonths] = useState(1)
   const [subscriptionPrice, setSubscriptionPrice] = useState(0)
   const [revenueStats, setRevenueStats] = useState<{ total_revenue: number; monthly_revenue: number; active_subscriptions: number; expired_subscriptions: number } | null>(null)
+  const { t } = useLanguage()
 
   useEffect(() => {
     fetchData()
@@ -75,7 +77,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       }
       setError('')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch data')
+      setError(err.response?.data?.detail || t("BotManagement.error.fetch-data", "Failed to fetch data"))
       setBots([]) // Set empty arrays on error
       if (isAdmin) {
         setUsers([])
@@ -91,11 +93,11 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       setError('')
       const user_id = isAdmin ? formData.user_id : (userId || 0)
       if (!user_id) {
-        setError('User ID not found')
+        setError(t("BotManagement.error.user-id-not-found", "User ID not found"))
         return
       }
       if (!formData.telegram_token) {
-        setError('Please enter a Telegram token')
+        setError(t("BotManagement.warning.enter-telegram-token", "Please enter a Telegram token"))
         return
       }
       await api.post('/bots', {
@@ -109,7 +111,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create bot')
+      setError(err.response?.data?.detail || t("BotManagement.error.create-bot", "Failed to create bot"))
     }
   }
 
@@ -156,7 +158,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update bot')
+      setError(err.response?.data?.detail || t("BotManagement.error.update-bot", "Failed to update bot"))
     }
   }
 
@@ -169,7 +171,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       fetchRevenueStats()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update bot status')
+      setError(err.response?.data?.detail || t("BotManagement.error.update-bot-status", "Failed to update bot status"))
     }
   }
 
@@ -185,7 +187,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       fetchRevenueStats()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to activate subscription')
+      setError(err.response?.data?.detail || t("BotManagement.error.activate-subscription", "Failed to activate subscription"))
     }
   }
 
@@ -200,7 +202,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to set subscription price')
+      setError(err.response?.data?.detail || t("BotManagement.error.set-subscription", 'Failed to set subscription price'))
     }
   }
 
@@ -215,7 +217,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
   }
 
   const handleDelete = async (botId: number) => {
-    if (!window.confirm('Are you sure you want to delete this bot?')) {
+    if (!window.confirm(t("BotManagement.confirm.delete-bot", "Are you sure you want to delete this bot?"))) {
       return
     }
 
@@ -225,7 +227,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete bot')
+      setError(err.response?.data?.detail || t("BotManagement.error.delete-bot", 'Failed to delete bot'))
     } finally {
       setDeletingId(null)
     }
@@ -237,24 +239,24 @@ function BotManagement({ onUpdate }: BotManagementProps) {
   }
 
   if (loading) {
-    return <div className="loading">Loading bots...</div>
+    return <div className="loading">{t("BotManagement.loading-bots", "Loading bots...")}</div>
   }
 
   return (
     <div className="bot-management">
       <div className="section-header">
-        <h2>Bot Management</h2>
+        <h2>{t("BotManagement.bot-management", "Bot Management")}</h2>
         <div className="header-actions-wrapper">
           {revenueStats && (
             <div className="revenue-stats">
               <div className="revenue-stat-item">
-                <strong>Revenue:</strong> {formatCurrency(revenueStats.total_revenue, 'sum')} total
+                <strong>{t("BotManagement.revenue", "Revenue")}:</strong> {formatCurrency(revenueStats.total_revenue, 'sum')} {t("BotManagement.total", "total")}
               </div>
               <div className="revenue-stat-item">
-                {formatCurrency(revenueStats.monthly_revenue, 'sum')} this month
+                {formatCurrency(revenueStats.monthly_revenue, 'sum')} {t("BotManagement.this-month", "this month")}
               </div>
               <div className="revenue-stat-item">
-                <strong>Active:</strong> {formatNumber(revenueStats.active_subscriptions)} | <strong>Expired:</strong> {formatNumber(revenueStats.expired_subscriptions)}
+                <strong>{t("BotManagement.active", "Active")}:</strong> {formatNumber(revenueStats.active_subscriptions)} | <strong>{t("BotManagement.expired", "Expired")}:</strong> {formatNumber(revenueStats.expired_subscriptions)}
               </div>
             </div>
           )}
@@ -268,7 +270,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
             })
             setShowModal(true)
           }} className="add-button">
-            + Add Bot
+            + {t("BotManagement.add-bot", "Add Bot")}
           </button>
         </div>
       </div>
@@ -276,20 +278,20 @@ function BotManagement({ onUpdate }: BotManagementProps) {
       {error && <div className="error-message">{error}</div>}
 
       {bots.length === 0 ? (
-        <div className="empty-state">No bots found. Create your first bot!</div>
+        <div className="empty-state">{t("BotManagement.warning.no-bots-found", "No bots found. Create your first bot!")}</div>
       ) : (
         <table className="data-table">
           <thead>
             <tr>
               <th>ID</th>
-              {isAdmin && <th>User</th>}
-              <th>Bot Name</th>
+              {isAdmin && <th>{t("BotManagement.user", "User")}</th>}
+              <th>{t("BotManagement.bot-name", "Bot Name")}</th>
               <th>Status</th>
-              {isAdmin && <th>Subscription</th>}
-              {isAdmin && <th>Price</th>}
-              {isAdmin && <th>Expires</th>}
-              <th>Created At</th>
-              <th>Actions</th>
+              {isAdmin && <th>{t("BotManagement.subscription", "Subscription")}</th>}
+              {isAdmin && <th>{t("BotManagement.price", "Price")}</th>}
+              {isAdmin && <th>{t("BotManagement.expires", "Expires")}</th>}
+              <th>{t("BotManagement.created-at", "Created At")}</th>
+              <th>{t("BotManagement.actions", "Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -300,13 +302,13 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                 <td data-label="Bot Name">{bot.bot_name || '-'}</td>
                 <td data-label="Status">
                   <span className={`status-badge ${bot.is_active ? 'active' : 'inactive'}`}>
-                    {bot.is_active ? 'Active' : 'Inactive'}
+                    {bot.is_active ? t("common.active", "Active") : t("common.inactive", "Inactive")}
                   </span>
                 </td>
                 {isAdmin && (
                   <td data-label="Subscription">
                     <span className={`status-badge ${bot.subscription_active && !isSubscriptionExpired(bot) ? 'active' : 'inactive'}`}>
-                      {bot.subscription_active && !isSubscriptionExpired(bot) ? 'Active' : isSubscriptionExpired(bot) ? 'Expired' : 'Inactive'}
+                      {bot.subscription_active && !isSubscriptionExpired(bot) ? t("common.active", "Active") : isSubscriptionExpired(bot) ? 'Expired' : 'Inactive'}
                     </span>
                   </td>
                 )}
@@ -325,7 +327,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                           className="edit-button"
                           style={{ fontSize: '12px', padding: '4px 8px' }}
                         >
-                          Set Price
+                          {t("BotManagement.set-price", "Set Price")}
                         </button>
                         <button
                           onClick={() => {
@@ -335,7 +337,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                           className="activate-button"
                           style={{ fontSize: '12px', padding: '4px 8px' }}
                         >
-                          {bot.subscription_active && !isSubscriptionExpired(bot) ? 'Extend' : 'Activate'}
+                          {bot.subscription_active && !isSubscriptionExpired(bot) ? t("BotManagement.extend", "Extend") : t("BotManagement.activate", "Activate")}
                         </button>
                       </>
                     )}
@@ -343,13 +345,14 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                       onClick={() => handleToggleActive(bot)}
                       className={`toggle-button ${bot.is_active ? 'deactivate' : 'activate'}`}
                     >
-                      {bot.is_active ? 'Deactivate' : 'Activate'}
+                      {bot.is_active ? t("BotManagement.deactivate", "Deactivate")
+                       : t("BotManagement.activate", "Activate")}
                     </button>
                     <button
                       onClick={() => handleEdit(bot)}
                       className="edit-button"
                     >
-                      Edit
+                      {t("common.edit", "Edit")}
                     </button>
                     {isAdmin && (
                       <button
@@ -357,7 +360,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                         disabled={deletingId === bot.bot_id}
                         className="delete-button"
                       >
-                        {deletingId === bot.bot_id ? 'Deleting...' : 'Delete'}
+                        {deletingId === bot.bot_id ? t("common.deleting", "Deleting...") : t("common.delete", "Delete")}
                       </button>
                     )}
                   </div>
@@ -375,60 +378,60 @@ function BotManagement({ onUpdate }: BotManagementProps) {
           setFormData({ user_id: 0, telegram_token: '', regos_integration_token: '', bot_name: '' })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingBot ? 'Edit Bot' : 'Create New Bot'}</h3>
+            <h3>{editingBot ? t("BotManagement.edit-bot", "Edit Bot") : t("BotManagement.create-new-bot", "Create New Bot")}</h3>
             <form onSubmit={editingBot ? handleUpdate : handleCreate}>
               {!editingBot && isAdmin && (
                 <div className="form-group">
-                  <label>User *</label>
+                  <label>{t("BotManagement.user", "User")} *</label>
                   <select
                     value={formData.user_id}
                     onChange={(e) => setFormData({ ...formData, user_id: parseInt(e.target.value) })}
                     required
                   >
-                    <option value={0}>Select a user</option>
+                    <option value={0}>{t("BotManagement.select-user", "Select a user")}</option>
                     {users.map((user) => (
                       <option key={user.user_id} value={user.user_id}>
-                        {user.username || user.email || `User ${user.user_id}`}
+                        {user.username || user.email || `${t("BotManagement.user", "User")} ${user.user_id}`}
                       </option>
                     ))}
                   </select>
                 </div>
               )}
               <div className="form-group">
-                <label>Telegram Token {!editingBot && '*'}</label>
+                <label>{t("BotManagement.telegram-token", "Telegram Token")} {!editingBot && '*'}</label>
                 <input
                   type="text"
                   value={formData.telegram_token}
                   onChange={(e) => setFormData({ ...formData, telegram_token: e.target.value })}
-                  placeholder={editingBot ? "Leave empty to keep current token" : "Telegram bot token"}
+                  placeholder={editingBot ? t("BotManagement.warning.leave-token-empty", "Leave empty to keep current token") : t("BotManagement.telegram-bot-token", "Telegram bot token")}
                   required={!editingBot}
                 />
                 {editingBot && (
                   <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
-                    Enter new token to update, or leave empty to keep current token
+                    {t("BotManagement.message.add-edit-token", "Enter new token to update, or leave empty to keep current token")}
                   </small>
                 )}
               </div>
               <div className="form-group">
-                <label>Bot Name</label>
+                <label>{t("BotManagement.bot-name", "Bot Name")}</label>
                 <input
                   type="text"
                   value={formData.bot_name}
                   onChange={(e) => setFormData({ ...formData, bot_name: e.target.value })}
-                  placeholder="Optional"
+                  placeholder={t("BotManagement.optional", "Optional")}
                 />
               </div>
               <div className="form-group">
-                <label>REGOS Integration Token</label>
+                <label>{t("BotManagement.regos-integration-token", "REGOS Integration Token")}</label>
                 <input
                   type="text"
                   value={formData.regos_integration_token}
                   onChange={(e) => setFormData({ ...formData, regos_integration_token: e.target.value })}
-                  placeholder={editingBot ? "Leave empty to keep current token" : "Optional"}
+                  placeholder={editingBot ? t("BotManagement.warning.leave-token-empty", "Leave empty to keep current token") : t("BotManagement.optional", "Optional")}
                 />
                 {editingBot && (
                   <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
-                    Enter new token to update, or leave empty to keep current token
+                    {t("BotManagement.message.add-edit-token", "Enter new token to update, or leave empty to keep current token")}
                   </small>
                 )}
               </div>
@@ -442,10 +445,10 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                   }}
                   className="cancel-button"
                 >
-                  Cancel
+                  {t("common.cancel", "Cancel")}
                 </button>
                 <button type="submit" className="submit-button">
-                  {editingBot ? 'Update' : 'Create'}
+                  {editingBot ? t("common.update", "Update") : t("common.create", "Create")}
                 </button>
               </div>
             </form>
@@ -459,25 +462,25 @@ function BotManagement({ onUpdate }: BotManagementProps) {
             <h3>
               {subscriptionModal.action === 'activate' 
                 ? (subscriptionModal.bot.subscription_active && !isSubscriptionExpired(subscriptionModal.bot) 
-                    ? 'Extend Subscription' 
-                    : 'Activate Subscription')
-                : 'Set Subscription Price'}
+                    ? t("BotManagement.extend-subscription", "Extend Subscription") 
+                    : t("BotManagement.activate-subscription", "Activate Subscription"))
+                : t("BotManagement.set-subscription-price", "Set Subscription Price")}
             </h3>
             {subscriptionModal.action === 'activate' ? (
               <form onSubmit={(e) => { e.preventDefault(); handleActivateSubscription() }}>
                 <div className="form-group">
-                  <label>Bot: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
+                  <label>{t("common.bot", "Bot")}: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
                 </div>
                 <div className="form-group">
-                  <label>Current Price: {formatCurrency(subscriptionModal.bot.subscription_price, '$')}/month</label>
+                  <label>{t("BotManagement.current-price", "Current Price")}: {formatCurrency(subscriptionModal.bot.subscription_price, '$')}/month</label>
                 </div>
                 {subscriptionModal.bot.subscription_expires_at && !isSubscriptionExpired(subscriptionModal.bot) && (
                   <div className="form-group">
-                    <label>Current Expiry: {formatDate(subscriptionModal.bot.subscription_expires_at)}</label>
+                    <label>{t("BotManagement.current-expiry", "Current Expiry")}: {formatDate(subscriptionModal.bot.subscription_expires_at)}</label>
                   </div>
                 )}
                 <div className="form-group">
-                  <label>Number of Months *</label>
+                  <label>{t("BotManagement.number-of-month", "Number of Months")} *</label>
                   <input
                     type="number"
                     min="1"
@@ -488,7 +491,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Total Amount: {formatCurrency(subscriptionModal.bot.subscription_price * subscriptionMonths, 'sum')}</label>
+                  <label>{t("BotManagement.total-amount", "Total Amount")}: {formatCurrency(subscriptionModal.bot.subscription_price * subscriptionMonths, 'sum')}</label>
                 </div>
                 <div className="modal-actions">
                   <button
@@ -496,20 +499,20 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                     onClick={() => setSubscriptionModal({ show: false, bot: null, action: 'activate' })}
                     className="cancel-button"
                   >
-                    Cancel
+                    {t("common.cancel", "Cancel")}
                   </button>
                   <button type="submit" className="submit-button">
-                    {subscriptionModal.bot.subscription_active && !isSubscriptionExpired(subscriptionModal.bot) ? 'Extend' : 'Activate'}
+                    {subscriptionModal.bot.subscription_active && !isSubscriptionExpired(subscriptionModal.bot) ? t("BotManagement.extend", "Extend") : t("BotManagement.activate", "Activate")}
                   </button>
                 </div>
               </form>
             ) : (
               <form onSubmit={(e) => { e.preventDefault(); handleSetPrice() }}>
                 <div className="form-group">
-                  <label>Bot: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
+                  <label>{t("common.bot", "Bot")}: {subscriptionModal.bot.bot_name || `Bot ${subscriptionModal.bot.bot_id}`}</label>
                 </div>
                 <div className="form-group">
-                  <label>Monthly Subscription Price (Sum) *</label>
+                  <label>{t("BotManagement.monthly-subscription-price-total", "Monthly Subscription Price (Sum)")} *</label>
                   <input
                     type="number"
                     min="0"
@@ -525,10 +528,10 @@ function BotManagement({ onUpdate }: BotManagementProps) {
                     onClick={() => setSubscriptionModal({ show: false, bot: null, action: 'activate' })}
                     className="cancel-button"
                   >
-                    Cancel
+                    {t("common.cancel", "Cancel")}
                   </button>
                   <button type="submit" className="submit-button">
-                    Set Price
+                    {t("BotManagement.set-price", "Set Price")}
                   </button>
                 </div>
               </form>

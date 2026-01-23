@@ -19,6 +19,13 @@
   align-items: center;
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .header-content h1 {
   font-size: 24px;
   font-weight: 600;

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import './App.css'
+import { LanguageProvider } from "./contexts/LanguageContext";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -11,7 +12,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth()
-  
+
   return (
     <Routes>
       <Route
@@ -34,7 +35,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter basename="/admin">
-        <AppRoutes />
+        <LanguageProvider>
+          <AppRoutes />
+        </LanguageProvider>
       </BrowserRouter>
     </AuthProvider>
   )

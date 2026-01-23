@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import './BotScheduleManagement.css'
+import { useLanguage } from "../contexts/LanguageContext"
 
 interface BotSchedule {
   id: number
@@ -49,6 +50,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
     enabled: true
   })
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const { t } = useLanguage();
 
   useEffect(() => {
     fetchData()
@@ -67,7 +69,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
       setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
       setError('')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch data')
+      setError(err.response?.data?.detail || t("BotScheduleManagement.error.fetch-data", "Failed to fetch data"))
       setSchedules([]) // Set empty arrays on error
       setBots([])
     } finally {
@@ -80,7 +82,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
     try {
       setError('')
       if (!formData.bot_id) {
-        setError('Please select a bot')
+        setError(t("BotScheduleManagement.message.select-bot", "Please select a bot"))
         return
       }
       
@@ -102,7 +104,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create bot schedule')
+      setError(err.response?.data?.detail || t("BotScheduleManagement.error.create-bot-schedule", "Failed to create bot schedule"))
     }
   }
 
@@ -133,12 +135,12 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update bot schedule')
+      setError(err.response?.data?.detail || t("BotScheduleManagement.error.update-bot-schedule", "Failed to update bot schedule"))
     }
   }
 
   const handleDelete = async (scheduleId: number) => {
-    if (!window.confirm('Are you sure you want to delete this schedule?')) {
+    if (!window.confirm(t("BotScheduleManagement.confirm.delete-bot-schedule", "Are you sure you want to delete this schedule?"))) {
       return
     }
 
@@ -148,7 +150,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete bot schedule')
+      setError(err.response?.data?.detail || t("BotScheduleManagement.error.delete-bot-schedule", "Failed to delete bot schedule"))
     } finally {
       setDeletingId(null)
     }
@@ -222,13 +224,13 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
   }
 
   if (loading) {
-    return <div className="loading">Loading bot schedules...</div>
+    return <div className="loading">{t("BotScheduleManagement.loading-bot-schedules", "Loading bot schedules...")}</div>
   }
 
   return (
     <div className="bot-schedule-management">
       <div className="section-header">
-        <h2>Bot Schedules Management</h2>
+        <h2>{t("BotScheduleManagement.bot-schedules-management", "Bot Schedules Management")}</h2>
         <button 
           onClick={() => {
             setEditingSchedule(null)
@@ -238,18 +240,18 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
           className="add-button"
           disabled={bots.length === 0}
         >
-          + Add Bot Schedule
+          + {t("BotScheduleManagement.add-bot-schedule", "Add Bot Schedule")}
         </button>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       {bots.length === 0 && schedules.length === 0 && (
-        <div className="empty-state">No bots available. Create a bot first!</div>
+        <div className="empty-state">{t("BotScheduleManagement.warning.no-bots", "No bots available. Create a bot first!")}</div>
       )}
 
       {schedules.length === 0 && bots.length > 0 && (
-        <div className="empty-state">No bot schedules found. Create your first schedule!</div>
+        <div className="empty-state">{t("BotScheduleManagement.not-bot-schedules", "No bot schedules found. Create your first schedule!")}</div>
       )}
 
       {schedules.length > 0 && (
@@ -257,14 +259,14 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Bot</th>
-              <th>Schedule Type</th>
-              <th>Time</th>
-              <th>Schedule Option</th>
-              <th>Schedule Value</th>
-              <th>Enabled</th>
-              <th>Updated At</th>
-              <th>Actions</th>
+              <th>{t("common.bot", "Bot")}</th>
+              <th>{t("BotScheduleManagement.schedule-type", "Schedule Type")}</th>
+              <th>{t("common.time", "Time")}</th>
+              <th>{t("BotScheduleManagement.schedule-option", "Schedule Option")}</th>
+              <th>{t("BotScheduleManagement.schedule-value", "Schedule Value")}</th>
+              <th>{t("common.enabled", "Enabled")}</th>
+              <th>{t("common.updated-at", "Updated At")}</th>
+              <th>{t("common.actions", "Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -276,7 +278,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                 <td data-label="Time">{schedule.time}</td>
                 <td data-label="Schedule Option">{getScheduleOptionLabel(schedule.schedule_option)}</td>
                 <td data-label="Schedule Value">{formatScheduleValue(schedule)}</td>
-                <td data-label="Enabled">{schedule.enabled ? 'Yes' : 'No'}</td>
+                <td data-label="Enabled">{schedule.enabled ? t("common.yes", "Yes") : t("common.no", "No")}</td>
                 <td data-label="Updated At">{new Date(schedule.updated_at).toLocaleString()}</td>
                 <td data-label="Actions">
                   <div className="action-buttons">
@@ -284,14 +286,14 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                       onClick={() => handleEdit(schedule)}
                       className="edit-button"
                     >
-                      Edit
+                      {t("common.edit", "Edit")}
                     </button>
                     <button
                       onClick={() => handleDelete(schedule.id)}
                       disabled={deletingId === schedule.id}
                       className="delete-button"
                     >
-                      {deletingId === schedule.id ? 'Deleting...' : 'Delete'}
+                      {deletingId === schedule.id ? t("common.deleting", "Deleting...") : t("common.delete", "Delete")}
                     </button>
                   </div>
                 </td>
@@ -308,20 +310,20 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
           resetForm()
         }}>
           <div className="modal-content schedule-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingSchedule ? 'Edit Bot Schedule' : 'Create New Bot Schedule'}</h3>
+            <h3>{editingSchedule ? t("BotScheduleManagement.edit-bot-schedule", "Edit Bot Schedule") : t("BotScheduleManagement.create-new-schedule", "Create New Bot Schedule")}</h3>
             <form onSubmit={editingSchedule ? handleUpdate : handleCreate}>
               {!editingSchedule && (
                 <div className="form-group">
-                  <label>Bot *</label>
+                  <label>{t("common.bot", "Bot")} *</label>
                   <select
                     value={formData.bot_id}
                     onChange={(e) => setFormData({ ...formData, bot_id: parseInt(e.target.value) })}
                     required
                   >
-                    <option value={0}>Select a bot</option>
+                    <option value={0}>{t("BotScheduleManagement.select-bot", "Select a bot")}</option>
                     {getAvailableBots().map((bot) => (
                       <option key={bot.bot_id} value={bot.bot_id}>
-                        {bot.bot_name || `Bot ${bot.bot_id}`}
+                        {bot.bot_name || `${t("common.bot", "Bot")} ${bot.bot_id}`}
                       </option>
                     ))}
                   </select>
@@ -329,7 +331,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
               )}
               {editingSchedule && (
                 <div className="form-group">
-                  <label>Bot</label>
+                  <label>{t("common.bot", "Bot")}</label>
                   <input
                     type="text"
                     value={getBotName(editingSchedule.bot_id)}
@@ -339,17 +341,17 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                 </div>
               )}
               <div className="form-group">
-                <label>Schedule Type *</label>
+                <label>{t("BotScheduleManagement.schedule-type", "Schedule Type")} *</label>
                 <select
                   value={formData.schedule_type}
                   onChange={(e) => setFormData({ ...formData, schedule_type: e.target.value })}
                   required
                 >
-                  <option value="send_partner_balance">Send Partner Balance</option>
+                  <option value="send_partner_balance">{t("BotScheduleManagement.send-partner-balance", "Send Partner Balance")}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Time *</label>
+                <label>{t("common.time", "Time")} *</label>
                 <input
                   type="time"
                   value={formData.time}
@@ -358,7 +360,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                 />
               </div>
               <div className="form-group">
-                <label>Schedule Option *</label>
+                <label>{t("BotScheduleManagement.schedule-option", "Schedule Option")} *</label>
                 <select
                   value={formData.schedule_option}
                   onChange={(e) => {
@@ -371,15 +373,15 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                   }}
                   required
                 >
-                  <option value="daily">Every day</option>
-                  <option value="weekdays">Specific weekdays</option>
-                  <option value="monthly">Specific day(s) of the month</option>
+                  <option value="daily">{t("BotScheduleManagement.every-day", "Every day")}</option>
+                  <option value="weekdays">{t("BotScheduleManagement.specific-weekdays", "Specific weekdays")}</option>
+                  <option value="monthly">{t("BotScheduleManagement.specific-days-of-month", "Specific day(s) of the month")}</option>
                 </select>
               </div>
               
               {formData.schedule_option === 'weekdays' && (
                 <div className="form-group">
-                  <label>Weekdays *</label>
+                  <label>{t("common.weekdays", "Weekdays")} *</label>
                   <div className="checkbox-group">
                     {WEEKDAYS.map(day => (
                       <label key={day.value} className="checkbox-label">
@@ -397,7 +399,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
               
               {formData.schedule_option === 'monthly' && (
                 <div className="form-group">
-                  <label>Days of Month * (1-31, comma-separated)</label>
+                  <label>{t("BotScheduleManagement.choose-days-of-month", "Days of Month * (1-31, comma-separated)")}</label>
                   <input
                     type="text"
                     value={formData.schedule_value.map(v => v.toString()).join(',')}

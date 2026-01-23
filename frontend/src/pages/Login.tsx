@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import './Login.css'
+import { useLanguage } from "../contexts/LanguageContext"
 
 function Login() {
   const [username, setUsername] = useState('')
@@ -10,6 +11,7 @@ function Login() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,12 +44,12 @@ function Login() {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1>Telegram Bot Admin</h1>
+        <h1>{t("login.telegram-bot-admin", "Telegram Bot Admin")}</h1>
         <h2>Login</h2>
         <form onSubmit={handleSubmit}>
           {error && <div className="error-message">{error}</div>}
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">{t("login.username", "Username")}</label>
             <input
               type="text"
               id="username"
@@ -59,18 +61,18 @@ function Login() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">{t("login.password", "Password")}</label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Enter password"
+              placeholder={t("login.enter-password", "Enter password")}
             />
           </div>
           <button type="submit" disabled={loading} className="login-button">
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? t("login.logging-in", "Logging in...") : t("login.login", "Login")}
           </button>
         </form>
       </div>

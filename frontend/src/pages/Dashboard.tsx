@@ -8,6 +8,8 @@ import BotSettingsManagement from '../components/BotSettingsManagement'
 import BotScheduleManagement from '../components/BotScheduleManagement'
 import ChangePassword from '../components/ChangePassword'
 import './Dashboard.css'
+import { useLanguage } from "../contexts/LanguageContext"
+import { LanguageSelector } from "../components/LanguageSelector"
 
 interface DashboardStats {
   totalUsers: number
@@ -29,6 +31,8 @@ function Dashboard() {
     registeredBots: 0,
   })
 
+  const { t } = useLanguage();
+
   useEffect(() => {
     // Only fetch stats after authentication is confirmed
     if (isAuthenticated) {
@@ -49,7 +53,7 @@ function Dashboard() {
         tokenPreview: token.substring(0, 20) + '...',
         tokenLength: token.length,
       })
-      
+
       // Small delay to ensure axios defaults are fully propagated
       await new Promise(resolve => setTimeout(resolve, 50))
     } else {
@@ -66,7 +70,7 @@ function Dashboard() {
           return { data: [] }
         }),
       ]
-      
+
       // Only fetch users and registered bots for admin
       if (role === 'admin') {
         requests.push(
@@ -80,16 +84,16 @@ function Dashboard() {
           })
         )
       }
-      
+
       const results = await Promise.all(requests)
-      
+
       // Ensure responses are arrays/objects, handle errors gracefully
       const botsData = Array.isArray(results[0].data) ? results[0].data : []
       const usersData = role === 'admin' && Array.isArray(results[1]?.data) ? results[1].data : []
-      const registeredBotsData = role === 'admin' && results[2]?.data && typeof results[2].data === 'object' 
-        ? results[2].data 
+      const registeredBotsData = role === 'admin' && results[2]?.data && typeof results[2].data === 'object'
+        ? results[2].data
         : {}
-      
+
       const activeBotsCount = botsData.filter((b: any) => b.is_active).length
 
       setStats({
@@ -114,17 +118,20 @@ function Dashboard() {
     <div className="dashboard">
       <header className="dashboard-header">
         <div className="header-content">
-          <h1>Telegram Bot Admin Panel</h1>
+          <div className='header-top'>
+            <h1>{t("dashboard.header", "Telegram Bot Admin Panel")}</h1>
+            <LanguageSelector />
+          </div>
           <div className="header-actions">
-            <span className="username">Welcome, {username}</span>
-            <button 
-              onClick={() => setShowChangePassword(true)} 
+            <span className="username">{t("dashboard.welcome", "Welcome")}, {username}</span>
+            <button
+              onClick={() => setShowChangePassword(true)}
               className="change-password-button"
-            >
-              Change Password
+            > 
+              {t("dashboard.change-password", "Change Password")}
             </button>
             <button onClick={logout} className="logout-button">
-              Logout
+              {t("dashboard.logout", "Logout")}
             </button>
           </div>
         </div>
@@ -133,21 +140,21 @@ function Dashboard() {
       <div className="dashboard-stats">
         {role === 'admin' && (
           <div className="stat-card">
-            <h3>Total Users</h3>
+            <h3>{t("dashboard.total-users", "Total Users")}</h3>
             <p className="stat-number">{formatNumber(stats.totalUsers)}</p>
           </div>
         )}
         <div className="stat-card">
-          <h3>Total Bots</h3>
+          <h3>{t("dashboard.total-bots", "Total Bots")}</h3>
           <p className="stat-number">{formatNumber(stats.totalBots)}</p>
         </div>
         <div className="stat-card">
-          <h3>Active Bots</h3>
+          <h3>{t("dashboard.active-bots", "Active Bots")}</h3>
           <p className="stat-number">{formatNumber(stats.activeBots)}</p>
         </div>
         {role === 'admin' && (
           <div className="stat-card">
-            <h3>Registered Bots</h3>
+            <h3>{t("dashboard.registered-bots", "Registered Bots")}</h3>
             <p className="stat-number">{formatNumber(stats.registeredBots)}</p>
           </div>
         )}
@@ -160,26 +167,26 @@ function Dashboard() {
               className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
               onClick={() => setActiveTab('users')}
             >
-              User Management
+              {t("dashboard.user-management", "User Management")}
             </button>
           )}
           <button
             className={`tab-button ${activeTab === 'bots' ? 'active' : ''}`}
             onClick={() => setActiveTab('bots')}
           >
-            Bot Management
+            {t("dashboard.bot-management", "Bot Management")}
           </button>
           <button
             className={`tab-button ${activeTab === 'bot-settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('bot-settings')}
           >
-            Bot Settings
+            {t("dashboard.bot-settings", "Bot Settings")}
           </button>
           <button
             className={`tab-button ${activeTab === 'bot-schedules' ? 'active' : ''}`}
             onClick={() => setActiveTab('bot-schedules')}
           >
-            Bot Schedules
+            {t("dashboard.bot-schedules", "Bot Schedules")}
           </button>
         </div>
 
@@ -194,14 +201,14 @@ function Dashboard() {
       {showChangePassword && (
         <div className="modal-overlay" onClick={() => setShowChangePassword(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <ChangePassword 
+            <ChangePassword
               onSuccess={() => setShowChangePassword(false)}
             />
-            <button 
+            <button
               className="modal-close-button"
               onClick={() => setShowChangePassword(false)}
             >
-              Close
+              {t("common.close", "Close")}
             </button>
           </div>
         </div>
