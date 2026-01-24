@@ -59,6 +59,7 @@ class LanguageService {
 
       if (needsUpdate) {
         await this.fetchLanguageFromBackend(langCode);
+        this.currentLanguage = langCode;
       }
 
       const cachedTranslations = await indexedDBService.getLanguage(langCode);
