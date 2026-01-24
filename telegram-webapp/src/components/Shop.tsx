@@ -419,7 +419,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                           </div>
                           {itemQuantity === 0 ? (
                             <button
-                              className={`product-add-to-cart ${product.quantity.allowed || 0 <= 0 ? 'disabled' : ''}`}
+                              className={`product-add-to-cart ${product.quantity.allowed !== undefined && product.quantity.allowed <= 0 ? 'disabled' : ''}`}
                               onClick={() => handleAddToCart(product)}
                             >
                               <FaShoppingCart />
