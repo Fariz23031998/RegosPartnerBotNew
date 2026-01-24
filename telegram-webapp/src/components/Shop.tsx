@@ -413,13 +413,13 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                           <div className="product-name">{highlightText(product.item.name, searchQuery)}</div>
                           <div className="product-details">
                             <div className="product-price">{formatPrice(product.price)} {currencyName}</div>
-                            <div className="product-quantity">{t("shop.in-stock", "В наличии")}: {product.quantity.common} {product.item.unit?.name}</div>
+                            <div className="product-quantity">{t("shop.in-stock", "В наличии")}: {product.quantity.allowed} {product.item.unit?.name}</div>
                             <div className="product-code">{t("shop.code", "Код")}: {product.item.code}</div>
                             <div className="product-group">{product.item.group.name}</div>
                           </div>
                           {itemQuantity === 0 ? (
                             <button
-                              className={`product-add-to-cart ${product.quantity.common <= 0 ? 'disabled' : ''}`}
+                              className={`product-add-to-cart ${product.quantity.allowed || 0 <= 0 ? 'disabled' : ''}`}
                               onClick={() => handleAddToCart(product)}
                             >
                               <FaShoppingCart />
