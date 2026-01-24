@@ -7,6 +7,7 @@ import ErrorMessage from './components/ErrorMessage'
 import { CartProvider } from './contexts/CartContext'
 import { apiFetch } from './utils/api'
 import './App.css'
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
 
 // Declare Telegram WebApp types
 declare global {
@@ -42,6 +43,7 @@ function AppContent() {
   const [currencyName, setCurrencyName] = useState<string>('сум')
   const [showOnlineStore, setShowOnlineStore] = useState<boolean>(true)
   const [currentPage, setCurrentPage] = useState<Page>('home')
+  const { t } = useLanguage()
 
   useEffect(() => {
     // Extract bot_name from URL path: /mini-app/bot_name
@@ -56,7 +58,7 @@ function AppContent() {
       setBotName(extractedBotName)
     } else {
       // SECURITY: If bot_name is not in URL, show error
-      setError('Invalid URL: bot name is required. Please open this app through your Telegram bot.')
+      setError(t("app.error.invalid-url", "Invalid URL: bot name is required. Please open this app through your Telegram bot."))
       setIsLoading(false)
       return
     }
@@ -101,14 +103,14 @@ function AppContent() {
     }
     
     // If no Telegram data found, show error
-    setError('This app must be opened from Telegram. Please open it through your Telegram bot.')
+    setError(t("app.error.telegram-required", "This app must be opened from Telegram. Please open it through your Telegram bot."))
     setIsLoading(false)
   }, [])
 
   const authenticateUser = async (userId: number, botName: string | null) => {
     // SECURITY: bot_name is REQUIRED
     if (!botName) {
-      setError('Bot name is required. Please open this app through your Telegram bot.')
+      setError(t("app.error.bot-name-required", "Bot name is required. Please open this app through your Telegram bot."))
       setIsLoading(false)
       return
     }
@@ -134,10 +136,10 @@ function AppContent() {
         }
         // If partner_id is not found, user will need to enter it
       } else {
-        setError(data.message || 'Authorization failed. Please ensure your Telegram ID is registered in the system.')
+        setError(data.message || t("app.error.authorization-failed", "Authorization failed. Please ensure your Telegram ID is registered in the system."))
       }
     } catch (err) {
-      setError('Failed to authenticate. Please try again.')
+      setError(t("app.error.authentication-failed", "Failed to authenticate. Please try again."))
     } finally {
       setIsLoading(false)
     }
@@ -207,17 +209,17 @@ function AppContent() {
   }
 
   if (!isAuthorized) {
-    return <ErrorMessage message="You are not authorized to access this application." />
+    return <ErrorMessage message={t("app.error.not-authorized", "You are not authorized to access this application.")} />
   }
 
   if (!partnerId) {
     return (
       <div className="partner-id-input">
-        <h2>Enter Partner ID</h2>
-        <p className="hint">Please enter your Partner ID to view documents</p>
+        <h2>{t("app.partner-id.title", "Enter Partner ID")}</h2>
+        <p className="hint">{t("app.partner-id.hint", "Please enter your Partner ID to view documents")}</p>
         <input
           type="number"
-          placeholder="Partner ID"
+          placeholder={t("app.partner-id.placeholder", "Partner ID")}
           onChange={(e) => {
             const value = e.target.value
             if (value) {
@@ -230,7 +232,7 @@ function AppContent() {
           if (input && input.value) {
             setPartnerId(parseInt(input.value))
           }
-        }}>Continue</button>
+        }}>{t("app.partner-id.continue", "Continue")}</button>
       </div>
     )
   }
@@ -294,7 +296,9 @@ function App() {
 
   return (
     <CartProvider botName={botName}>
-      <AppContent />
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
     </CartProvider>
   )
 }

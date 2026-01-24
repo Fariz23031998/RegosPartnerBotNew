@@ -6,6 +6,7 @@ import PartnerBalance from './PartnerBalance'
 import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './DocumentList.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface Document {
   id: number
@@ -39,7 +40,7 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [documentTotals, setDocumentTotals] = useState<DocumentTotals>({})
   const [showTotalsSection, setShowTotalsSection] = useState(false)
-
+  const { t } = useLanguage()
   // Set default dates to current month
   const getCurrentMonthDates = () => {
     const now = new Date()
@@ -77,18 +78,18 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
       // For payment documents, currency is in type.account.currency
       if (doc.type?.account?.currency) {
         return typeof doc.type.account.currency === 'object'
-          ? doc.type.account.currency.name || 'Unknown'
-          : 'Unknown'
+          ? doc.type.account.currency.name || t('document-list.currency.unknown', 'Unknown')
+          : t('document-list.currency.unknown', 'Unknown')
       }
     } else {
       // For other documents, currency is directly on the document
       if (doc.currency) {
         return typeof doc.currency === 'object'
-          ? doc.currency.name || 'Unknown'
-          : 'Unknown'
+          ? doc.currency.name || t('document-list.currency.unknown', 'Unknown')
+          : t('document-list.currency.unknown', 'Unknown')
       }
     }
-    return 'Unknown'
+    return t('document-list.currency.unknown', 'Unknown')
   }
 
   // Helper function to get amount from a document
@@ -190,7 +191,7 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
   const fetchDocuments = async () => {
     // SECURITY: bot_name is REQUIRED
     if (!botName) {
-      setError('Bot name is required. Please refresh the page.')
+      setError(t('document-list.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
       setIsLoading(false)
       return
     }
@@ -240,10 +241,10 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
           setDocuments(data.documents || [])
         }
       } else {
-        setError('Failed to fetch documents')
+        setError(t('document-list.error.fetch-documents', 'Failed to fetch documents'))
       }
     } catch (err) {
-      setError('Error loading documents')
+      setError(t('document-list.error.load-documents', 'Error loading documents'))
     } finally {
       setIsLoading(false)
     }
@@ -304,37 +305,37 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
             className={activeTab === 'wholesale' ? 'active' : ''}
             onClick={() => setActiveTab('wholesale')}
           >
-            Закупки
+            {t('document-list.tabs.purchase', 'Закупки')}
           </button>
           <button
             className={activeTab === 'wholesale-return' ? 'active' : ''}
             onClick={() => setActiveTab('wholesale-return')}
           >
-            Возврат закупок
+            {t('document-list.tabs.purchase-return', 'Возврат закупок')}
           </button>
           <button
             className={activeTab === 'purchase' ? 'active' : ''}
             onClick={() => setActiveTab('purchase')}
           >
-            Отгрузки
+            {t('document-list.tabs.shipment', 'Отгрузки')}
           </button>
           <button
             className={activeTab === 'purchase-return' ? 'active' : ''}
             onClick={() => setActiveTab('purchase-return')}
           >
-            Возврат отгрузок
+            {t('document-list.tabs.shipment-return', 'Возврат отгрузок')}
           </button>
           <button
             className={activeTab === 'payment' ? 'active' : ''}
             onClick={() => setActiveTab('payment')}
           >
-            Платежи
+            {t('document-list.tabs.payment', 'Платежи')}
           </button>
           <button
             className={activeTab === 'balance' ? 'active' : ''}
             onClick={() => setActiveTab('balance')}
           >
-            Баланс
+            {t('document-list.tabs.balance', 'Баланс')}
           </button>
         </div>
 
@@ -347,19 +348,19 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
               setEndDate(appliedEndDate)
               setShowDatePicker(!showDatePicker)
             }}
-            title="Выбрать период"
+            title={t('document-list.date-picker.title', 'Выбрать период')}
           >
             📅
           </button>
           {showDatePicker && (
             <div className="date-picker-popup">
               <div className="date-picker-header">
-                <span>Выберите период</span>
+                <span>{t('document-list.date-picker.select-period', 'Выберите период')}</span>
                 <button className="close-button" onClick={() => setShowDatePicker(false)}>×</button>
               </div>
               <div className="date-inputs">
                 <div className="date-input-group">
-                  <label>С:</label>
+                  <label>{t('document-list.date-picker.from', 'С:')}</label>
                   <input
                     type="date"
                     value={startDate}
@@ -368,7 +369,7 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
                   />
                 </div>
                 <div className="date-input-group">
-                  <label>По:</label>
+                  <label>{t('document-list.date-picker.to', 'По:')}</label>
                   <input
                     type="date"
                     value={endDate}
@@ -379,10 +380,10 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
               </div>
               <div className="date-picker-actions">
                 <button className="reset-button" onClick={resetToCurrentMonth}>
-                  Текущий месяц
+                  {t('document-list.date-picker.current-month', 'Текущий месяц')}
                 </button>
                 <button className="apply-button" onClick={handleDateChange}>
-                  Применить
+                  {t('document-list.date-picker.apply', 'Применить')}
                 </button>
               </div>
             </div>
@@ -396,7 +397,7 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
             <button
               className={`totals-toggle-button-icon ${showTotalsSection ? 'active' : ''}`}
               onClick={() => setShowTotalsSection(!showTotalsSection)}
-              title="Итого по типам документов"
+              title={t('document-list.totals-toggle.title', 'Итого по типам документов')}
             >
               📊
             </button>
@@ -410,11 +411,11 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
           <div className="totals-grid">
             {Object.entries(documentTotals).map(([type, currencyTotals]) => {
               const typeLabels: { [key: string]: string } = {
-                'purchase': 'Отгрузки',  // System purchase -> Partner sees shipment
+                'purchase': t('document-list.totals.shipment', 'Отгрузки'),  // System purchase -> Partner sees shipment
                 'purchase-return': 'Возврат отгрузок',  // System purchase return -> Partner sees shipment return
-                'wholesale': 'Закупки',  // System wholesale -> Partner sees purchase
-                'wholesale-return': 'Возврат закупок',  // System wholesale return -> Partner sees purchase return
-                'payment': 'Платежи'
+                'wholesale': t('document-list.totals.purchase', 'Закупки'),  // System wholesale -> Partner sees purchase
+                'wholesale-return': t('document-list.totals.purchase-return', 'Возврат закупок'),  // System wholesale return -> Partner sees purchase return
+                'payment': t('document-list.totals.payment', 'Платежи')
               }
 
               const typeLabel = typeLabels[type] || type
@@ -451,11 +452,11 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
           botName={botName}
         />
       ) : isLoading ? (
-        <div className="loading-state">Loading...</div>
+        <div className="loading-state">{t('document-list.loading', 'Loading...')}</div>
       ) : error ? (
         <div className="error-state">{error}</div>
       ) : documents.length === 0 ? (
-        <div className="empty-state">No documents found</div>
+        <div className="empty-state">{t('document-list.empty.no-documents', 'No documents found')}</div>
       ) : (
         <div className="documents">
           {documents.map((doc) => (

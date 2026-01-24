@@ -5,6 +5,7 @@ import { getInvertedDebitCreditLabels, getPartnerDocumentTypeName } from '../uti
 import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './PartnerBalance.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface PartnerBalanceProps {
   telegramUserId: number
@@ -52,7 +53,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
   const [selectedCurrencies, setSelectedCurrencies] = useState<number[]>([])
   const [balance, setBalance] = useState<BalanceEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  
+  const { t } = useLanguage()
   // Get inverted labels for partner view
   const { debitLabel, creditLabel } = getInvertedDebitCreditLabels("ru")
   const [isLoadingBalance, setIsLoadingBalance] = useState(false)
@@ -77,7 +78,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
   const fetchFirmsAndCurrencies = async () => {
     // SECURITY: bot_name is REQUIRED
     if (!botName) {
-      setError('Bot name is required. Please refresh the page.')
+      setError(t('partner-balance.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
       setIsLoading(false)
       return
     }
@@ -109,7 +110,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
         setCurrencies(currenciesData.currencies || [])
       }
     } catch (err) {
-      setError('Error loading firms and currencies')
+      setError(t('partner-balance.error.load-firms-currencies', 'Error loading firms and currencies'))
     } finally {
       setIsLoading(false)
     }
@@ -118,7 +119,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
   const fetchBalance = async () => {
     // SECURITY: bot_name is REQUIRED
     if (!botName) {
-      setError('Bot name is required. Please refresh the page.')
+      setError(t('partner-balance.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
       setIsLoadingBalance(false)
       return
     }
@@ -147,10 +148,10 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
         const sortedBalance = (data.balance || []).sort((a: BalanceEntry, b: BalanceEntry) => (b.date || 0) - (a.date || 0))
         setBalance(sortedBalance)
       } else {
-        setError('Failed to fetch balance')
+        setError(t('partner-balance.error.fetch-balance', 'Failed to fetch balance'))
       }
     } catch (err) {
-      setError('Error loading balance')
+      setError(t('partner-balance.error.load-balance', 'Error loading balance'))
     } finally {
       setIsLoadingBalance(false)
     }
@@ -190,7 +191,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
 
   const handleExport = async () => {
     if (selectedFirms.length === 0 || selectedCurrencies.length === 0) {
-      setExportError('Выберите хотя бы одно предприятие и одну валюту')
+      setExportError(t('partner-balance.error.select-firm-currency', 'Выберите хотя бы одно предприятие и одну валюту'))
       return
     }
 
@@ -203,7 +204,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
 
       // SECURITY: bot_name is REQUIRED
       if (!botName) {
-        setExportError('Bot name is required. Please refresh the page.')
+        setExportError(t('partner-balance.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
         setIsExporting(false)
         return
       }
@@ -226,15 +227,15 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
         // Show success message
         const tg = window.Telegram?.WebApp
         if (tg) {
-          tg.showAlert('Excel файл отправлен в ваш Telegram чат!')
+          tg.showAlert(t('partner-balance.export.success', 'Excel файл отправлен в ваш Telegram чат!'))
         } else {
-          alert('Excel файл отправлен в ваш Telegram чат!')
+          alert(t('partner-balance.export.success', 'Excel файл отправлен в ваш Telegram чат!'))
         }
       } else {
-        setExportError(data.message || 'Ошибка при экспорте')
+        setExportError(data.message || t('partner-balance.export.error', 'Ошибка при экспорте'))
       }
     } catch (err) {
-      setExportError('Ошибка при отправке файла')
+      setExportError(t('partner-balance.export.error', 'Ошибка при отправке файла'))
     } finally {
       setIsExporting(false)
     }
@@ -251,7 +252,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
   return (
     <div className="partner-balance">
       <div className="balance-header">
-        <h2 className="balance-title">Баланс партнера</h2>
+        <h2 className="balance-title">{t("partner-balance.header.title", "Баланс партнера")}</h2>
         {selectedFirms.length > 0 && selectedCurrencies.length > 0 && (
           <button
             className="export-balance-button"
@@ -269,7 +270,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
 
       <div className="balance-filters">
         <div className="filter-section">
-          <h3 className="filter-title">Предприятия</h3>
+          <h3 className="filter-title">{t("partner-balance.filters.firms", "Предприятия")}</h3>
           <div className="checkbox-group">
             {firms.map(firm => (
               <label key={firm.id} className="checkbox-label">
@@ -285,7 +286,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
         </div>
 
         <div className="filter-section">
-          <h3 className="filter-title">Валюты</h3>
+          <h3 className="filter-title">{t("partner-balance.filters.currencies", "Валюты")}</h3>
           <div className="checkbox-group">
             {currencies.map(currency => (
               <label key={currency.id} className="checkbox-label">
@@ -303,12 +304,12 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
 
       {selectedFirms.length === 0 || selectedCurrencies.length === 0 ? (
         <div className="balance-placeholder">
-          Выберите хотя бы одно предприятие и одну валюту для отображения баланса
+          {t("partner-balance.placeholder", "Выберите хотя бы одно предприятие и одну валюту для отображения баланса")}
         </div>
       ) : isLoadingBalance ? (
         <Loading />
       ) : balance.length === 0 ? (
-        <div className="balance-empty">Нет данных о балансе за выбранный период</div>
+        <div className="balance-empty">{t("partner-balance.empty", "Нет данных о балансе за выбранный период")}</div>
       ) : (
         <div className="balance-list">
           {balance.map(entry => {
@@ -321,19 +322,19 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
                 </div>
                 <div className="balance-entry-details">
                   <div className="balance-detail-row">
-                    <span className="balance-label">Тип документа:</span>
+                    <span className="balance-label">{t("partner-balance.document-type", "Тип документа:")}</span>
                     <span className="balance-value">{getPartnerDocumentTypeName(entry.document_type.name, "ru")}</span>
                   </div>
                   <div className="balance-detail-row">
-                    <span className="balance-label">Предприятие:</span>
+                    <span className="balance-label">{t("partner-balance.firm", "Предприятие:")}</span>
                     <span className="balance-value">{entry.firm.name}</span>
                   </div>
                   <div className="balance-detail-row">
-                    <span className="balance-label">Валюта:</span>
+                    <span className="balance-label">{t("partner-balance.currency", "Валюта:")}</span>
                     <span className="balance-value">{entry.currency.name} ({entry.currency.code_chr})</span>
                   </div>
                   <div className="balance-detail-row">
-                    <span className="balance-label">Начальный остаток:</span>
+                    <span className="balance-label">{t("partner-balance.start-balance", "Начальный остаток:")}</span>
                     <span className="balance-value">
                       {formatNumber(-entry.start_amount)}
                     </span>
@@ -357,14 +358,14 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
                     </div>
                   )}
                   <div className="balance-detail-row total">
-                    <span className="balance-label">Остаток:</span>
+                    <span className="balance-label">{t("partner-balance.remainder", "Остаток:")}</span>
                     <span className={`balance-value ${remainder >= 0 ? 'positive' : 'negative'}`}>
                       {formatNumber(remainder)}
                     </span>
                   </div>
                   {entry.exchange_rate !== 1 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">Курс обмена:</span>
+                      <span className="balance-label">{t("partner-balance.exchange-rate", "Курс обмена:")}</span>
                       <span className="balance-value">
                         {formatNumber(entry.exchange_rate, 4)}
                       </span>

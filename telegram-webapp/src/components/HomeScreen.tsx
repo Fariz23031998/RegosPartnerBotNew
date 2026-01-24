@@ -1,4 +1,5 @@
 import './HomeScreen.css'
+import { useLanguage } from "../contexts/LanguageContext"
 
 interface HomeScreenProps {
   onNavigate: (page: 'reports' | 'shop') => void
@@ -6,10 +7,11 @@ interface HomeScreenProps {
 }
 
 function HomeScreen({ onNavigate, showOnlineStore }: HomeScreenProps) {
+  const { t } = useLanguage()
   return (
     <div className="home-screen">
       <div className="home-container">
-        <h1 className="home-title">Добро пожаловать</h1>
+        <h1 className="home-title">{t("home.welcome", "Welcome")}</h1>
         <div className="home-icons">
           <button 
             className="home-icon-button"
@@ -18,7 +20,7 @@ function HomeScreen({ onNavigate, showOnlineStore }: HomeScreenProps) {
             <div className="icon-wrapper">
               <span className="icon-large">📊</span>
             </div>
-            <span className="icon-label">Отчёты</span>
+            <span className="icon-label">{t("home.reports", "Отчёты")}</span>
           </button>
           {showOnlineStore && (
             <button 
@@ -28,7 +30,7 @@ function HomeScreen({ onNavigate, showOnlineStore }: HomeScreenProps) {
               <div className="icon-wrapper">
                 <span className="icon-large">🛒</span>
               </div>
-              <span className="icon-label">Магазин</span>
+              <span className="icon-label">{t("home.shop", "Магазин")}</span>
             </button>
           )}
         </div>

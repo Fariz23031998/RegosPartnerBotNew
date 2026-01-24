@@ -13,6 +13,7 @@ import { useOrders } from '../hooks/useOrders'
 import { formatNumber } from '../utils/formatNumber'
 import { formatDate, calculateOrderTotal, getOrderStatus } from '../utils/orderUtils'
 import './Shop.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface ShopProps {
   telegramUserId: number
@@ -33,7 +34,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
   const { getCartItemCount } = useCart()
   const cart = useOptimisticCart()
   const [cartError, setCartError] = useState<string | null>(null)
-
+  const { t } = useLanguage()
   // Memoize stock info creation to avoid recreating objects
   const createStockInfo = useCallback((product: { quantity: { common: number; allowed?: number } }) => ({
     common: product.quantity.common,
@@ -143,10 +144,10 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
 
   const getSelectedGroupName = () => {
     if (selectedGroups.length === 0) {
-      return 'Все товары'
+      return t("shop.all-products", "Все товары")
     }
     const selectedGroup = groups.find(g => g.id === selectedGroups[0])
-    return selectedGroup ? selectedGroup.name : 'Все товары'
+    return selectedGroup ? selectedGroup.name : t("shop.all-products", "Все товары")
   }
 
   const formatPrice = (price: number) => {
@@ -251,13 +252,13 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
             className={`shop-tab ${activeTab === 'products' ? 'active' : ''}`}
             onClick={() => setActiveTab('products')}
           >
-            Товары
+            {t("shop.products", "Товары")}
           </button>
           <button
             className={`shop-tab ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
-            Заказы
+            {t("shop.orders", "Заказы")}
           </button>
         </div>
         {activeTab === 'products' && (
@@ -266,7 +267,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
               <button
                 className="search-icon-button"
                 onClick={() => setShowSearch(true)}
-                aria-label="Поиск"
+                aria-label={t("shop.search", "Поиск")}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -277,7 +278,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
             <button
               className="cart-icon-button"
               onClick={() => setShowCart(true)}
-              title="Корзина"
+              title={t("shop.cart", "Корзина")}
             >
               <FaShoppingCart />
               {getCartItemCount() > 0 && (
@@ -294,7 +295,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
             <div className={`search-box ${showSearch ? 'expanded' : ''}`}>
               <input
                 type="text"
-                placeholder="Поиск товаров..."
+                placeholder={t("shop.search-placeholder", "Поиск товаров...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
@@ -306,7 +307,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                   setShowSearch(false)
                   setSearchQuery('')
                 }}
-                aria-label="Закрыть поиск"
+                aria-label={t("shop.close-search", "Закрыть поиск")}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -320,31 +321,31 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
               className={`quick-filter-chip ${quickFilter === 'all' ? 'active' : ''}`}
               onClick={() => setQuickFilter('all')}
             >
-              Все
+              {t("shop.all", "Все")}
             </button>
             <button
               className={`quick-filter-chip ${quickFilter === 'in-stock' ? 'active' : ''}`}
               onClick={() => setQuickFilter('in-stock')}
             >
-              В наличии
+              {t("shop.in-stock", "В наличии")}
             </button>
             <button
               className={`quick-filter-chip ${quickFilter === 'low-stock' ? 'active' : ''}`}
               onClick={() => setQuickFilter('low-stock')}
             >
-              Мало
+              {t("shop.low-stock", "Мало")} 
             </button>
             <button
               className={`quick-filter-chip ${quickFilter === 'cheap' ? 'active' : ''}`}
               onClick={() => setQuickFilter('cheap')}
             >
-              Дешевые
+              {t("shop.cheap", "Дешевые")}
             </button>
             <button
               className={`quick-filter-chip ${quickFilter === 'expensive' ? 'active' : ''}`}
               onClick={() => setQuickFilter('expensive')}
             >
-              Дорогие
+              {t("shop.expensive", "Дорогие")}
             </button>
           </div>
 
@@ -364,7 +365,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                     className={`group-filter-item ${selectedGroups.length === 0 ? 'active' : ''}`}
                     onClick={clearGroupFilter}
                   >
-                    Все товары
+                    {t("shop.all-products", "Все товары")}
                   </button>
                   {groups.map(group => (
                     <button
@@ -388,7 +389,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
             const filteredProducts = applyQuickFilter(products)
             return filteredProducts.length === 0 ? (
               <div className="empty-products">
-                {products.length === 0 ? 'Товары не найдены' : 'Товары не найдены по выбранному фильтру'}
+                {products.length === 0 ? t("shop.products-not-found", "Товары не найдены") : t("shop.products-not-found-by-filter", "Товары не найдены по выбранному фильтру")}
               </div>
             ) : (
               <>
@@ -412,8 +413,8 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                           <div className="product-name">{highlightText(product.item.name, searchQuery)}</div>
                           <div className="product-details">
                             <div className="product-price">{formatPrice(product.price)} {currencyName}</div>
-                            <div className="product-quantity">В наличии: {product.quantity.common} {product.item.unit?.name}</div>
-                            <div className="product-code">Код: {product.item.code}</div>
+                            <div className="product-quantity">{t("shop.in-stock", "В наличии")}: {product.quantity.common} {product.item.unit?.name}</div>
+                            <div className="product-code">{t("shop.code", "Код")}: {product.item.code}</div>
                             <div className="product-group">{product.item.group.name}</div>
                           </div>
                           {itemQuantity === 0 ? (
@@ -493,7 +494,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
             
             return nonEmptyOrders.length === 0 ? (
               <div className="empty-products">
-                Заказы не найдены
+                {t("shop.orders-not-found", "Заказы не найдены")}
               </div>
             ) : (
               <div className="orders-list">
@@ -504,13 +505,13 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                     onClick={() => setSelectedOrder({ id: order.id })}
                   >
                     <div className="order-header">
-                      <div className="order-code">Заказ №{order.code || order.id}</div>
+                      <div className="order-code">{t("shop.order-code", "Заказ №")}{order.code || order.id}</div>
                       <div className={`order-status ${order.performed ? 'performed' : 'pending'}`}>
                         {getOrderStatus(order)}
                       </div>
                     </div>
                     <div className="order-date">
-                      Дата: {formatDate(order.date)}
+                      {t("shop.date", "Дата")}: {formatDate(order.date)}
                     </div>
                     {order.description && (
                       <div className="order-description">
@@ -518,7 +519,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                       </div>
                     )}
                     <div className="order-total">
-                      Итого: {formatPrice(calculateOrderTotal(order))} {order.currency?.name || currencyName}
+                      {t("shop.total", "Итого")}: {formatPrice(calculateOrderTotal(order))} {order.currency?.name || currencyName}
                     </div>
                   </div>
                 ))}

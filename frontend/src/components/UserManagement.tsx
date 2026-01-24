@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import './UserManagement.css'
+import { useLanguage } from "../contexts/LanguageContext"
 
 interface User {
   user_id: number
@@ -21,6 +22,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [formData, setFormData] = useState({ username: '', email: '', password: '' })
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const { t } = useLanguage()
 
   useEffect(() => {
     fetchUsers()
@@ -59,7 +61,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
       fetchUsers()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create user')
+      setError(err.response?.data?.detail || t("UserManagement.error.create-user", "Failed to create user"))
     }
   }
 
@@ -90,12 +92,12 @@ function UserManagement({ onUpdate }: UserManagementProps) {
       fetchUsers()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update user')
+      setError(err.response?.data?.detail || t("UserManagement.error.update-user", "Failed to update user"))
     }
   }
 
   const handleDelete = async (userId: number) => {
-    if (!window.confirm('Are you sure you want to delete this user? All associated tokens will also be deleted.')) {
+    if (!window.confirm(t("UserManagement.confirm.delete-user", "Are you sure you want to delete this user? All associated tokens will also be deleted."))) {
       return
     }
 
@@ -105,7 +107,7 @@ function UserManagement({ onUpdate }: UserManagementProps) {
       fetchUsers()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete user')
+      setError(err.response?.data?.detail || t("UserManagement.error.delete-user", "Failed to delete user"))
     } finally {
       setDeletingId(null)
     }
@@ -124,23 +126,23 @@ function UserManagement({ onUpdate }: UserManagementProps) {
           setFormData({ username: '', email: '', password: '' })
           setShowModal(true)
         }} className="add-button">
-          + Add User
+          + {t("UserManagement.add-user", "Add User")}
         </button>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       {users.length === 0 ? (
-        <div className="empty-state">No users found. Create your first user!</div>
+        <div className="empty-state">{t("UserManagement.empty-state.no-users-found", "No users found. Create your first user!")}</div>
       ) : (
         <table className="data-table">
           <thead>
             <tr>
               <th>ID</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Created At</th>
-              <th>Actions</th>
+              <th>{t("UserManagement.table.username", "Username")}</th>
+              <th>{t("UserManagement.table.email", "Email")}</th>
+              <th>{t("UserManagement.table.created-at", "Created At")}</th>
+              <th>{t("UserManagement.table.actions", "Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -156,14 +158,14 @@ function UserManagement({ onUpdate }: UserManagementProps) {
                       onClick={() => handleEdit(user)}
                       className="edit-button"
                     >
-                      Edit
+                      {t("common.edit", "Edit")}
                     </button>
                     <button
                       onClick={() => handleDelete(user.user_id)}
                       disabled={deletingId === user.user_id}
                       className="delete-button"
                     >
-                      {deletingId === user.user_id ? 'Deleting...' : 'Delete'}
+                      {deletingId === user.user_id ? t("common.deleting", "Deleting...") : t("common.delete", "Delete")}
                     </button>
                   </div>
                 </td>
@@ -180,24 +182,24 @@ function UserManagement({ onUpdate }: UserManagementProps) {
           setFormData({ username: '', email: '', password: '' })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingUser ? 'Edit User' : 'Create New User'}</h3>
+            <h3>{editingUser ? t("UserManagement.modal.edit-user", "Edit User") : t("UserManagement.modal.create-new-user", "Create New User")}</h3>
             <form onSubmit={editingUser ? handleUpdate : handleCreate}>
               <div className="form-group">
-                <label>Username</label>
+                <label>{t("UserManagement.modal.username", "Username")}</label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="Optional"
+                  placeholder={t("common.optional", "Optional")}
                 />
               </div>
               <div className="form-group">
-                <label>Email</label>
+                <label>{t("UserManagement.modal.email", "Email")}</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Optional"
+                  placeholder={t("common.optional", "Optional")}
                 />
               </div>
               <div className="form-group">
@@ -206,12 +208,12 @@ function UserManagement({ onUpdate }: UserManagementProps) {
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder={editingUser ? "Leave empty to keep current password" : "Set initial password"}
+                  placeholder={editingUser ? t("UserManagement.modal.leave-empty-to-keep-current-password", "Leave empty to keep current password") : t("UserManagement.modal.set-initial-password", "Set initial password")}
                   required={!editingUser}
                 />
                 {editingUser && (
                   <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
-                    Enter new password to update, or leave empty to keep current password
+                    {t("UserManagement.modal.enter-new-password-to-update", "Enter new password to update, or leave empty to keep current password")}
                   </small>
                 )}
               </div>
@@ -225,10 +227,10 @@ function UserManagement({ onUpdate }: UserManagementProps) {
                   }}
                   className="cancel-button"
                 >
-                  Cancel
+                  Cancel{t("common.cancel", "Cancel")}
                 </button>
                 <button type="submit" className="submit-button">
-                  {editingUser ? 'Update' : 'Create'}
+                  {editingUser ? t("common.update", "Update") : t("common.create", "Create")}
                 </button>
               </div>
             </form>

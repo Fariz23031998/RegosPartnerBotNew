@@ -5,6 +5,7 @@ import ErrorMessage from './ErrorMessage'
 import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './OrderDetail.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface OrderDetailProps {
   orderId: number
@@ -20,7 +21,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
   const [operations, setOperations] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  const { t } = useLanguage()
   useEffect(() => {
     fetchOrderDetails()
   }, [orderId])
@@ -32,7 +33,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
 
       // SECURITY: bot_name is REQUIRED
       if (!botName) {
-        setError('Bot name is required. Please refresh the page.')
+        setError(t('order-detail.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
         return
       }
       
@@ -48,11 +49,11 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
         setOrder(data.order)
         setOperations(data.operations || [])
       } else {
-        setError(data.message || 'Не удалось загрузить детали заказа')
+        setError(data.message || t('order-detail.error.load-details', 'Не удалось загрузить детали заказа'))
       }
     } catch (err) {
       console.error('Error fetching order details:', err)
-      setError('Ошибка при загрузке деталей заказа')
+      setError(t('order-detail.error.load-details', 'Ошибка при загрузке деталей заказа'))
     } finally {
       setIsLoading(false)
     }
@@ -94,7 +95,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
   }
 
   if (!order) {
-    return <ErrorMessage message="Заказ не найден" />
+    return <ErrorMessage message={t('order-detail.error.not-found', "Заказ не найден")} />
   }
 
   return (
@@ -103,39 +104,39 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
         <button className="back-button-icon" onClick={onBack} aria-label="Назад">
           <FaArrowLeft />
         </button>
-        <h2>Заказ №{order.code || order.id}</h2>
+        <h2>{t("order-detail.header.title", `Заказ №${order.code}`, { code: order.code })}</h2>
       </div>
 
       <div className="order-detail-info">
         <div className="info-row">
-          <span className="info-label">Дата:</span>
+          <span className="info-label">{t("order-detail.info.date", "Дата:")}</span>
           <span className="info-value">{formatDate(order.date)}</span>
         </div>
         <div className="info-row">
-          <span className="info-label">Статус:</span>
+          <span className="info-label">{t("order-detail.info.status", "Статус:")}</span>
           <span className={`info-value status ${order.performed ? 'performed' : 'pending'}`}>
-            {order.performed ? 'Выполнен' : order.booked ? 'Забронирован' : 'Новый'}
+            {order.performed ? t('order-detail.info.status.performed', 'Выполнен') : order.booked ? t('order-detail.info.status.booked', 'Забронирован') : t('order-detail.info.status.new', 'Новый')}
           </span>
         </div>
         {order.description && (
           <div className="info-row">
-            <span className="info-label">Описание:</span>
+            <span className="info-label">{t("order-detail.info.description", "Описание:")}</span>
             <span className="info-value">{order.description}</span>
           </div>
         )}
         {order.stock && (
           <div className="info-row">
-            <span className="info-label">Склад:</span>
+            <span className="info-label">{t("order-detail.info.stock", "Склад:")}</span>
             <span className="info-value">{order.stock.name}</span>
           </div>
         )}
         {order.currency && (
           <div className="info-row">
-            <span className="info-label">Валюта:</span>
+            <span className="info-label">{t("order-detail.info.currency", "Валюта:")}</span>
             <span className="info-value">
               {order.currency.name}
               {order.exchange_rate && order.exchange_rate !== 1 && (
-                <span> (Курс: {order.exchange_rate})</span>
+                <span> ({t("order-detail.info.exchange-rate", "Курс:")} {order.exchange_rate})</span>
               )}
             </span>
           </div>
@@ -143,7 +144,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
       </div>
 
       <div className="order-operations">
-        <h3>Товары в заказе</h3>
+        <h3>{t("order-detail.operations.title", "Товары в заказе")}</h3>
         {operations.length > 0 ? (
           <>
             <div className="operations-list">
@@ -153,23 +154,23 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
                   <div key={op.id || index} className="operation-card">
                     <div className="operation-item-header">
                       <div className="operation-item-name">
-                        {op.item?.name || op.item?.fullname || `Товар #${op.item_id || op.id || index + 1}`}
+                        {op.item?.name || op.item?.fullname || t("order-detail.operations.item-name", `Товар #${op.item_id || op.id || index + 1}`, { item_id: op.item_id || op.id || index + 1 })}
                       </div>
                       {op.item?.code && (
-                        <div className="operation-item-code">Код: {op.item.code}</div>
+                        <div className="operation-item-code">{t("order-detail.operations.code", "Код")}: {op.item.code}</div>
                       )}
                     </div>
                     <div className="operation-details">
                       <div className="operation-detail-row">
-                        <span className="operation-detail-label">Количество:</span>
+                        <span className="operation-detail-label">{t("order-detail.operations.quantity", "Количество:")}</span>
                         <span className="operation-detail-value">{op.quantity || 0}</span>
                       </div>
                       <div className="operation-detail-row">
-                        <span className="operation-detail-label">Цена:</span>
+                        <span className="operation-detail-label">{t("order-detail.operations.price", "Цена:")}</span>
                         <span className="operation-detail-value">{formatPrice(op.price || 0)}</span>
                       </div>
                       <div className="operation-detail-row operation-total-row">
-                        <span className="operation-detail-label">Сумма:</span>
+                        <span className="operation-detail-label">{t("order-detail.operations.sum", "Сумма:")}</span>
                         <span className="operation-detail-value operation-amount">{formatPrice(amount)}</span>
                       </div>
                     </div>
@@ -178,7 +179,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
               })}
             </div>
             <div className="order-total">
-              <span className="total-label">Итого к оплате:</span>
+              <span className="total-label">{t("order-detail.total.title", "Итого к оплате:")}</span>
               <span className="total-value">
                 {formatPrice(calculateTotal())} {order.currency?.name || currencyName}
               </span>
@@ -186,7 +187,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
           </>
         ) : (
           <div className="no-operations">
-            В заказе пока нет товаров
+            {t("order-detail.operations.no-items", "В заказе пока нет товаров")}
           </div>
         )}
       </div>

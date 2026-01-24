@@ -4,6 +4,7 @@ import { useCart } from '../contexts/CartContext'
 import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './Checkout.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface CheckoutProps {
   telegramUserId: number
@@ -21,6 +22,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
   const [isTakeaway, setIsTakeaway] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useLanguage()
 
   const formatPrice = (price: number) => {
     return formatNumber(price)
@@ -31,7 +33,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
 
     // Validate required fields
     if (!isTakeaway && !address.trim()) {
-      setError('Пожалуйста, введите адрес доставки')
+      setError(t("checkout.error.address-required", "Пожалуйста, введите адрес доставки"))
       return
     }
 
@@ -45,7 +47,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
 
     if (invalidItems.length > 0) {
       const itemNames = invalidItems.map(item => item.name).join(', ')
-      setError(`Невозможно оформить заказ: товары "${itemNames}" отсутствуют в наличии`)
+      setError(t("checkout.error.items-not-available", `Невозможно оформить заказ: товары "${itemNames}" отсутствуют в наличии`, { itemNames }))
       return
     }
 
@@ -54,7 +56,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
 
     // SECURITY: bot_name is REQUIRED
     if (!botName) {
-      setError('Bot name is required. Please refresh the page.')
+      setError(t("checkout.error.bot-name-required", "Bot name is required. Please refresh the page."))
       return
     }
     
@@ -87,16 +89,16 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
         clearCart()
         const tg = window.Telegram?.WebApp
         if (tg) {
-          tg.showAlert('Заказ успешно создан!')
+          tg.showAlert(t('checkout.success', 'Заказ успешно создан!'))
         } else {
-          alert('Заказ успешно создан!')
+          alert(t('checkout.success', 'Заказ успешно создан!'))
         }
         onComplete()
       } else {
-        setError(data.message || 'Ошибка при создании заказа')
+        setError(data.message || t('checkout.error.create-order', 'Ошибка при создании заказа'))
       }
     } catch (err) {
-      setError('Ошибка при отправке заказа. Попробуйте еще раз.')
+      setError(t('checkout.error.send-order', 'Ошибка при отправке заказа. Попробуйте еще раз.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -108,12 +110,12 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
         <button className="back-button-icon" onClick={onBack} aria-label="Назад">
           <FaArrowLeft />
         </button>
-        <h2>Оформление заказа</h2>
+        <h2>{t("checkout.title", "Оформление заказа")}</h2>
       </div>
 
       <div className="checkout-content">
         <div className="checkout-items">
-          <h3>Товары в заказе:</h3>
+          <h3>{t("checkout.items", "Товары в заказе:")}</h3>
           {cart.map((item) => (
             <div key={item.productId} className="checkout-item">
               <div className="checkout-item-name">{item.name}</div>
@@ -129,7 +131,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
 
         <div className="checkout-form">
           <div className="form-group">
-            <label htmlFor="phone">Телефон</label>
+            <label htmlFor="phone">{t("checkout.form.phone", "Телефон")}</label>
             <input
               id="phone"
               type="tel"
@@ -148,18 +150,18 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
                 onChange={(e) => setIsTakeaway(e.target.checked)}
                 className="checkbox-input"
               />
-              <span>С собой</span>
+              <span>{t("checkout.form.takeaway", "С собой")}</span>
             </label>
           </div>
 
           {!isTakeaway && (
             <div className="form-group">
-              <label htmlFor="address">Адрес доставки *</label>
+              <label htmlFor="address">{t("checkout.form.address-label", "Адрес доставки")} *</label>
               <textarea
                 id="address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Введите адрес доставки"
+                placeholder={t("checkout.form.address-placeholder", "Введите адрес доставки")}
                 className="form-textarea"
                 rows={3}
                 required={!isTakeaway}
@@ -176,7 +178,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
 
         <div className="checkout-total">
           <div className="checkout-total-row">
-            <span>Итого:</span>
+            <span>{t("checkout.total", "Итого:")}</span>
             <span className="checkout-total-amount">
               {formatPrice(getCartTotal())} {currencyName}
             </span>
@@ -189,7 +191,7 @@ function Checkout({ telegramUserId, partnerId, botName, currencyName, onBack, on
             onClick={handleComplete}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Отправка...' : 'Подтвердить заказ'}
+            {isSubmitting ? t('checkout.submitting', 'Отправка...') : t('checkout.confirm-order', 'Подтвердить заказ')}
           </button>
         </div>
       </div>

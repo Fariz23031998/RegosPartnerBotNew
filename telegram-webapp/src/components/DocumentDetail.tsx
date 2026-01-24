@@ -5,6 +5,7 @@ import ErrorMessage from './ErrorMessage'
 import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './DocumentDetail.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface DocumentDetailProps {
   documentId: number
@@ -40,7 +41,8 @@ function DocumentDetail({
   const [operations, setOperations] = useState<Operation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  const { t } = useLanguage()
+  
   useEffect(() => {
     fetchDocumentDetails()
   }, [documentId, documentType])
@@ -68,7 +70,7 @@ function DocumentDetail({
 
       // SECURITY: bot_name is REQUIRED
       if (!botName) {
-        setError('Bot name is required. Please refresh the page.')
+        setError(t('document-detail.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
         setIsLoading(false)
         return
       }
@@ -85,10 +87,10 @@ function DocumentDetail({
         setDocument(data.document)
         setOperations(data.operations || [])
       } else {
-        setError('Failed to fetch document details')
+        setError(t('document-detail.error.fetch-details', 'Failed to fetch document details'))
       }
     } catch (err) {
-      setError('Error loading document details')
+      setError(t('document-detail.error.load-details', 'Error loading document details'))
     } finally {
       setIsLoading(false)
     }
@@ -117,15 +119,15 @@ function DocumentDetail({
     // Map system document types to partner perspective
     switch (documentType) {
       case 'purchase':
-        return 'Отгрузка'  // System purchase -> Partner sees shipment
+        return t('document-detail.type.shipment', 'Отгрузка')  // System purchase -> Partner sees shipment
       case 'purchase-return':
-        return 'Возврат отгрузки'  // System purchase return -> Partner sees shipment return
+        return t('document-detail.type.shipment-return', 'Возврат отгрузки')  // System purchase return -> Partner sees shipment return
       case 'wholesale':
-        return 'Закупка'  // System wholesale -> Partner sees purchase
+        return t('document-detail.type.purchase', 'Закупка')  // System wholesale -> Partner sees purchase
       case 'wholesale-return':
-        return 'Возврат закупки'  // System wholesale return -> Partner sees purchase return
+        return t('document-detail.type.purchase-return', 'Возврат закупки')  // System wholesale return -> Partner sees purchase return
       default:
-        return 'Документ'
+        return t('document-detail.type.document', 'Документ')
     }
   }
 
@@ -162,7 +164,7 @@ function DocumentDetail({
 
       // SECURITY: bot_name is REQUIRED
       if (!botName) {
-        setExportError('Bot name is required. Please refresh the page.')
+        setExportError(t('document-detail.export.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
         setIsExporting(false)
         return
       }
@@ -181,15 +183,15 @@ function DocumentDetail({
         // Show success message (could use Telegram WebApp.showAlert)
         const tg = window.Telegram?.WebApp
         if (tg) {
-          tg.showAlert('Excel файл отправлен в ваш Telegram чат!')
+          tg.showAlert(t('document-detail.export.success', 'Excel файл отправлен в ваш Telegram чат!'))
         } else {
-          alert('Excel файл отправлен в ваш Telegram чат!')
+          alert(t('document-detail.export.success', 'Excel файл отправлен в ваш Telegram чат!'))
         }
       } else {
-        setExportError(data.message || 'Ошибка при экспорте')
+        setExportError(data.message || t('document-detail.export.error', 'Ошибка при экспорте'))
       }
     } catch (err) {
-      setExportError('Ошибка при отправке файла')
+      setExportError(t('document-detail.export.error', 'Ошибка при отправке файла'))
     } finally {
       setIsExporting(false)
     }
@@ -213,7 +215,7 @@ function DocumentDetail({
   if (!document) {
     return (
       <div>
-        <ErrorMessage message="Document not found" />
+        <ErrorMessage message={t('document-detail.error.not-found', "Document not found")} />
         <button onClick={onBack} className="back-button-icon" aria-label="Назад">
           <FaArrowLeft />
         </button>
@@ -234,7 +236,7 @@ function DocumentDetail({
             className="export-button"
             disabled={isExporting}
           >
-            {isExporting ? '⏳ Отправка...' : '📥 Скачать Excel'}
+            {isExporting ? t('document-detail.export.submitting', '⏳ Отправка...') : t('document-detail.export.download', '📥 Скачать Excel')}
           </button>
         </div>
       </div>
@@ -245,16 +247,16 @@ function DocumentDetail({
 
       <div className="document-info">
         <div className="info-row">
-          <span className="info-label">Номер документа:</span>
+          <span className="info-label">{t('document-detail.info.number', 'Номер документа:')}</span>
           <span className="info-value">{document.code || document.id}</span>
         </div>
         <div className="info-row">
-          <span className="info-label">Дата:</span>
+          <span className="info-label">{t('document-detail.info.date', 'Дата:')}</span>
           <span className="info-value">{formatDate(document.date)}</span>
         </div>
         {document.stock && (
           <div className="info-row">
-            <span className="info-label">Склад:</span>
+            <span className="info-label">{t('document-detail.info.stock', 'Склад:')}</span>
             <span className="info-value">
               {typeof document.stock === 'object' ? document.stock.name : document.stock}
             </span>
@@ -262,7 +264,7 @@ function DocumentDetail({
         )}
         {document.currency && (
           <div className="info-row">
-            <span className="info-label">Валюта:</span>
+            <span className="info-label">{t('document-detail.info.currency', 'Валюта:')}</span>
             <span className="info-value">
               {typeof document.currency === 'object' ? document.currency.name : document.currency}
             </span>
@@ -270,7 +272,7 @@ function DocumentDetail({
         )}
         {document.exchange_rate && document.exchange_rate !== 1 && document.exchange_rate !== '1' && document.exchange_rate !== 1.0 && (
           <div className="info-row">
-            <span className="info-label">Курс обмена:</span>
+            <span className="info-label">{t('document-detail.info.exchange-rate', 'Курс обмена:')}</span>
             <span className="info-value">
               {typeof document.exchange_rate === 'number' 
                 ? formatNumber(document.exchange_rate, 4)
@@ -281,13 +283,13 @@ function DocumentDetail({
       </div>
 
       <div className="operations-section">
-        <h3>Товары</h3>
+        <h3>{t('document-detail.operations.title', 'Товары')}</h3>
         <div className="operations-list">
           {operations.length === 0 ? (
-            <p className="no-items">Нет товаров</p>
+            <p className="no-items">{t('document-detail.operations.no-items', 'Нет товаров')}</p>
           ) : (
             operations.map((op, idx) => {
-              const itemName = typeof op.item === 'object' ? op.item.name : op.item || 'Неизвестный товар'
+              const itemName = typeof op.item === 'object' ? op.item.name : op.item || t('document-detail.operations.unknown-item', 'Неизвестный товар')
               const price = useCost ? (op.cost || 0) : (op.price || 0)
               const itemTotal = op.quantity * price
 
@@ -314,13 +316,13 @@ function DocumentDetail({
 
       <div className="document-total">
         <div className="total-row">
-          <span className="total-label">Всего товаров:</span>
+          <span className="total-label">{t('document-detail.total.total-items', 'Всего товаров:')}</span>
           <span className="total-value">
             {operations.reduce((sum, op) => sum + op.quantity, 0)}
           </span>
         </div>
         <div className="total-row">
-          <span className="total-label">Итого к оплате:</span>
+          <span className="total-label">{t("document-detail.total.total-payment", "Итого к оплате:")}</span>
           <span className="total-value total-amount">
             {formatNumber(total)}
             {document.currency && (
@@ -332,7 +334,7 @@ function DocumentDetail({
         </div>
         {document.exchange_rate && document.exchange_rate !== 1 && document.exchange_rate !== '1' && document.exchange_rate !== 1.0 && (
           <div className="total-row">
-            <span className="total-label">Курс обмена:</span>
+            <span className="total-label">{t("document-detail.total.exchange-rate", "Курс обмена:")}</span>
             <span className="total-value">
               {typeof document.exchange_rate === 'number' 
                 ? formatNumber(document.exchange_rate, 4)

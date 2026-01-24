@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import './BotSettingsManagement.css'
+import { useLanguage } from "../contexts/LanguageContext"
 
 interface BotSettings {
   id: number
@@ -43,6 +44,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
     partner_group_id: 1
   })
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const { t } = useLanguage()
 
   useEffect(() => {
     fetchData()
@@ -61,7 +63,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
       setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
       setError('')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch data')
+      setError(err.response?.data?.detail || t("BotSettingsManagement.error.fetch-data", "Failed to fetch data"))
       setSettings([]) // Set empty arrays on error
       setBots([])
     } finally {
@@ -74,7 +76,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
     try {
       setError('')
       if (!formData.bot_id) {
-        setError('Please select a bot')
+        setError(t("BotSettingsManagement.message.select-bot", "Please select a bot"))
         return
       }
       await api.post('/bot-settings', {
@@ -92,7 +94,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create bot settings')
+      setError(err.response?.data?.detail || t("BotSettingsManagement.error.create-bot-settings", "Failed to create bot settings"))
     }
   }
 
@@ -132,12 +134,12 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update bot settings')
+      setError(err.response?.data?.detail || t("BotSettingsManagement.error.update-bot-settings", "Failed to update bot settings"))
     }
   }
 
   const handleDelete = async (settingsId: number) => {
-    if (!window.confirm('Are you sure you want to delete these bot settings?')) {
+    if (!window.confirm(t("BotSettingsManagement.confirm.delete-bot-settings", "Are you sure you want to delete these bot settings?"))) {
       return
     }
 
@@ -147,7 +149,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
       fetchData()
       onUpdate?.()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete bot settings')
+      setError(err.response?.data?.detail || t("BotSettingsManagement.error.delete-bot-settings", "Failed to delete bot settings"))
     } finally {
       setDeletingId(null)
     }
@@ -165,13 +167,13 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
   }
 
   if (loading) {
-    return <div className="loading">Loading bot settings...</div>
+    return <div className="loading">{t("BotSettingsManagement.loading.loading-bot-settings", "Loading bot settings...")}</div>
   }
 
   return (
     <div className="bot-settings-management">
       <div className="section-header">
-        <h2>Bot Settings Management</h2>
+        <h2>{t("BotSettingsManagement.bot-settings-management", "Bot Settings Management")}</h2>
         <button 
           onClick={() => {
             setEditingSettings(null)
@@ -181,18 +183,18 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
           className="add-button"
           disabled={getAvailableBots().length === 0}
         >
-          + Add Bot Settings
+          + {t("BotSettingsManagement.add-bot-settings", "Add Bot Settings")}
         </button>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       {getAvailableBots().length === 0 && settings.length === 0 && (
-        <div className="empty-state">No bots available. Create a bot first!</div>
+        <div className="empty-state">{t("BotSettingsManagement.message.no-bots-available", "No bots available. Create a bot first!")}</div>
       )}
 
       {settings.length === 0 && getAvailableBots().length > 0 && (
-        <div className="empty-state">No bot settings found. Create your first settings!</div>
+        <div className="empty-state">{t("BotSettingsManagement.message.no-bot-settings-found", "No bot settings found. Create your first settings!")}</div>
       )}
 
       {settings.length > 0 && (
@@ -200,16 +202,16 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Bot</th>
-              <th>Online Store Stock ID</th>
-              <th>Online Store Price Type ID</th>
-              <th>Online Store Currency ID</th>
-              <th>Currency Name</th>
-              <th>Show Online Store</th>
-              <th>Can Register</th>
-              <th>Partner Group ID</th>
-              <th>Updated At</th>
-              <th>Actions</th>
+              <th>{t("BotSettingsManagement.table.bot", "Bot")}</th>
+              <th>{t("BotSettingsManagement.table.online-store-stock-id", "Online Store Stock ID")}</th>
+              <th>{t("BotSettingsManagement.table.online-store-price-type-id", "Online Store Price Type ID")}</th>
+              <th>{t("BotSettingsManagement.table.online-store-currency-id", "Online Store Currency ID")}</th>
+              <th>{t("BotSettingsManagement.table.currency-name", "Currency Name")}</th>
+              <th>{t("BotSettingsManagement.table.show-online-store", "Show Online Store")}</th>
+              <th>{t("BotSettingsManagement.table.can-register", "Can Register")}</th>
+              <th>{t("BotSettingsManagement.table.partner-group-id", "Partner Group ID")}</th>
+              <th>{t("BotSettingsManagement.table.updated-at", "Updated At")}</th>
+              <th>{t("BotSettingsManagement.table.actions", "Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -231,14 +233,14 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                       onClick={() => handleEdit(setting)}
                       className="edit-button"
                     >
-                      Edit
+                      {t("common.edit", "Edit")}
                     </button>
                     <button
                       onClick={() => handleDelete(setting.id)}
                       disabled={deletingId === setting.id}
                       className="delete-button"
                     >
-                      {deletingId === setting.id ? 'Deleting...' : 'Delete'}
+                      {deletingId === setting.id ? t("common.deleting", "Deleting...") : t("common.delete", "Delete")}
                     </button>
                   </div>
                 </td>
@@ -255,11 +257,11 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
           setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>{editingSettings ? 'Edit Bot Settings' : 'Create New Bot Settings'}</h3>
+            <h3>{editingSettings ? t("BotSettingsManagement.modal.edit-bot-settings", "Edit Bot Settings") : t("BotSettingsManagement.modal.create-new-bot-settings", "Create New Bot Settings")}</h3>
             <form onSubmit={editingSettings ? handleUpdate : handleCreate}>
               {!editingSettings && (
                 <div className="form-group">
-                  <label>Bot *</label>
+                  <label>{t("BotSettingsManagement.modal.bot", "Bot")} *</label>
                   <select
                     value={formData.bot_id}
                     onChange={(e) => setFormData({ ...formData, bot_id: parseInt(e.target.value) })}
@@ -268,7 +270,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                     <option value={0}>Select a bot</option>
                     {getAvailableBots().map((bot) => (
                       <option key={bot.bot_id} value={bot.bot_id}>
-                        {bot.bot_name || `Bot ${bot.bot_id}`}
+                        {bot.bot_name || `${t("common.bot", "Bot")} ${bot.bot_id}`}
                       </option>
                     ))}
                   </select>
@@ -276,7 +278,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
               )}
               {editingSettings && (
                 <div className="form-group">
-                  <label>Bot</label>
+                  <label>{t("common.bot", "Bot")}</label>
                   <input
                     type="text"
                     value={getBotName(editingSettings.bot_id)}
@@ -286,12 +288,12 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                 </div>
               )}
               <div className="form-group">
-                <label>Online Store Stock ID</label>
+                <label>{t("BotSettingsManagement.modal.online-store-stock-id", "Online Store Stock ID")}</label>
                 <input
                   type="number"
                   value={formData.online_store_stock_id}
                   onChange={(e) => setFormData({ ...formData, online_store_stock_id: e.target.value })}
-                  placeholder="Optional"
+                  placeholder={t("common.optional", "Optional")}
                   min="0"
                 />
               </div>
@@ -301,28 +303,28 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                   type="number"
                   value={formData.online_store_price_type_id}
                   onChange={(e) => setFormData({ ...formData, online_store_price_type_id: e.target.value })}
-                  placeholder="Optional"
+                  placeholder={t("common.optional", "Optional")}
                   min="0"
                 />
               </div>
               <div className="form-group">
-                <label>Online Store Currency ID *</label>
+                <label>{t("BotSettingsManagement.modal.online-store-currency-id", "Online Store Currency ID")} *</label>
                 <input
                   type="number"
                   value={formData.online_store_currency_id}
                   onChange={(e) => setFormData({ ...formData, online_store_currency_id: e.target.value })}
-                  placeholder="Default: 1"
+                  placeholder={t("common.default-one", "Default: 1")}
                   min="1"
                   required
                 />
               </div>
               <div className="form-group">
-                <label>Currency Name *</label>
+                <label>{t("BotSettingsManagement.modal.currency-name", "Currency Name")} *</label>
                 <input
                   type="text"
                   value={formData.currency_name}
                   onChange={(e) => setFormData({ ...formData, currency_name: e.target.value })}
-                  placeholder="Default: сум"
+                  placeholder={t("common.default-one", "Default: 1")}
                   required
                 />
               </div>
@@ -333,7 +335,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                     checked={formData.show_online_store}
                     onChange={(e) => setFormData({ ...formData, show_online_store: e.target.checked })}
                   />
-                  {' '}Show Online Store
+                  {' '}{t("BotSettingsManagement.modal.show-online-store", "Show Online Store")}
                 </label>
               </div>
               <div className="form-group">
@@ -343,16 +345,16 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                     checked={formData.can_register}
                     onChange={(e) => setFormData({ ...formData, can_register: e.target.checked })}
                   />
-                  {' '}Can Register
+                  {' '}{t("BotSettingsManagement.modal.can-register", "Can Register")}
                 </label>
               </div>
               <div className="form-group">
-                <label>Partner Group ID *</label>
+                <label>{t("BotSettingsManagement.modal.partner-group-id", "Partner Group ID")} *</label>
                 <input
                   type="number"
                   value={formData.partner_group_id}
                   onChange={(e) => setFormData({ ...formData, partner_group_id: parseInt(e.target.value) || 1 })}
-                  placeholder="Default: 1"
+                  placeholder={t("common.default-one", "Default: 1")}
                   min="1"
                   required
                 />
@@ -367,10 +369,10 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
                   }}
                   className="cancel-button"
                 >
-                  Cancel
+                  {t("common.cancel", "Cancel")}
                 </button>
                 <button type="submit" className="submit-button">
-                  {editingSettings ? 'Update' : 'Create'}
+                  {editingSettings ? t("common.update", "Update") : t("common.create", "Create")}
                 </button>
               </div>
             </form>

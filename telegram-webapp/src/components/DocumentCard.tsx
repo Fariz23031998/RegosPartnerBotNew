@@ -1,5 +1,6 @@
 import { formatNumber } from '../utils/formatNumber'
 import './DocumentCard.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface DocumentCardProps {
   document: any
@@ -9,21 +10,23 @@ interface DocumentCardProps {
 }
 
 function DocumentCard({ document, type, formatDate, onClick }: DocumentCardProps) {
+  const { t } = useLanguage()
+  
   const getDocumentTypeLabel = () => {
     // Map system document types to partner perspective
     switch (type) {
       case 'purchase':
-        return 'Отгрузка'  // System purchase -> Partner sees shipment
+        return t('document-card.type.shipment', 'Отгрузка')  // System purchase -> Partner sees shipment
       case 'purchase-return':
-        return 'Возврат отгрузки'  // System purchase return -> Partner sees shipment return
+        return t('document-card.type.shipment-return', 'Возврат отгрузки')  // System purchase return -> Partner sees shipment return
       case 'wholesale':
-        return 'Закупка'  // System wholesale -> Partner sees purchase
+        return t('document-card.type.purchase', 'Закупка')  // System wholesale -> Partner sees purchase
       case 'wholesale-return':
-        return 'Возврат закупки'  // System wholesale return -> Partner sees purchase return
+        return t('document-card.type.purchase-return', 'Возврат закупки')  // System wholesale return -> Partner sees purchase return
       case 'payment':
-        return 'Платеж'
+        return t('document-card.type.payment', 'Платеж')
       default:
-        return 'Документ'
+        return t('document-card.type.document', 'Документ')
     }
   }
 
@@ -99,12 +102,12 @@ function DocumentCard({ document, type, formatDate, onClick }: DocumentCardProps
       {getTotal() > 0 && (
         <div className="document-total">
           <div className="total-amount">
-            Сумма: {formatNumber(getTotal())}
+            {t('document-card.total', 'Сумма:')} {formatNumber(getTotal())}
             {getCurrency() && <span className="currency"> {getCurrency()}</span>}
           </div>
           {getExchangeRate() && (
             <div className="exchange-rate">
-              Курс: {typeof getExchangeRate() === 'number' 
+              {t('document-card.exchange-rate', 'Курс:')} {typeof getExchangeRate() === 'number' 
                 ? formatNumber(getExchangeRate(), 4)
                 : getExchangeRate()}
             </div>
@@ -113,7 +116,7 @@ function DocumentCard({ document, type, formatDate, onClick }: DocumentCardProps
       )}
       {type === 'payment' && document.category && (
         <div className="document-payment-direction">
-          {document.category.positive ? '💸 Выплачено' : '💰 Получено'}
+          {document.category.positive ? t('document-card.payment-direction.paid', '💸 Выплачено') : t('document-card.payment-direction.received', '💰 Получено')}
         </div>
       )}
     </div>

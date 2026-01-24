@@ -2,6 +2,7 @@ import { useCart } from '../contexts/CartContext'
 import { formatNumber } from '../utils/formatNumber'
 import { FaImages } from 'react-icons/fa'
 import './Cart.css'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface CartProps {
   currencyName: string
@@ -17,6 +18,7 @@ function Cart({ currencyName, onCheckout, onClose }: CartProps) {
     getCartTotal,
     clearCart,
   } = useCart()
+  const { t } = useLanguage()
 
   const formatPrice = (price: number) => {
     return formatNumber(price)
@@ -32,11 +34,11 @@ function Cart({ currencyName, onCheckout, onClose }: CartProps) {
       <div className="cart-overlay" onClick={onClose}>
         <div className="cart-panel" onClick={(e) => e.stopPropagation()}>
           <div className="cart-header">
-            <h2>Корзина</h2>
+            <h2>{t("cart.title", "Корзина")}</h2>
             <button className="cart-close" onClick={onClose}>×</button>
           </div>
           <div className="cart-empty">
-            <p>Корзина пуста</p>
+            <p>{t("cart.empty", "Корзина пуста")}</p>
           </div>
         </div>
       </div>
@@ -47,7 +49,7 @@ function Cart({ currencyName, onCheckout, onClose }: CartProps) {
     <div className="cart-overlay" onClick={onClose}>
       <div className="cart-panel" onClick={(e) => e.stopPropagation()}>
         <div className="cart-header">
-          <h2>Корзина</h2>
+          <h2>{t("cart.title", "Корзина")}</h2>
           <button className="cart-close" onClick={onClose}>×</button>
         </div>
 
@@ -105,15 +107,15 @@ function Cart({ currencyName, onCheckout, onClose }: CartProps) {
 
         <div className="cart-footer">
           <div className="cart-total">
-            <span>Итого:</span>
+            <span>{t("cart.total", "Итого:")}</span>
             <span className="cart-total-amount">{formatPrice(getCartTotal())} {currencyName}</span>
           </div>
           <div className="cart-actions">
             <button className="cart-clear-btn" onClick={clearCart}>
-              Очистить
+              {t("cart.clear", "Очистить")}
             </button>
             <button className="cart-checkout-btn" onClick={handleCheckout}>
-              Оформить заказ
+              {t("cart.checkout", "Оформить заказ")}
             </button>
           </div>
         </div>

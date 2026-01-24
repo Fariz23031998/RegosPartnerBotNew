@@ -413,7 +413,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                     placeholder="1, 15, 30"
                   />
                   <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
-                    Enter day numbers (1-31) separated by commas
+                    {t("BotScheduleManagement.enter-day-numbers", "Enter day numbers (1-31) separated by commas")}
                   </small>
                 </div>
               )}
@@ -425,7 +425,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                     checked={formData.enabled}
                     onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
                   />
-                  <span>Enabled</span>
+                  <span>{t("common.enabled", "Enabled")}</span>
                 </label>
               </div>
               
@@ -439,10 +439,10 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
                   }}
                   className="cancel-button"
                 >
-                  Cancel
+                  {t("common.cancel", "Cancel")}
                 </button>
                 <button type="submit" className="submit-button">
-                  {editingSchedule ? 'Update' : 'Create'}
+                  {editingSchedule ? t("common.update", "Update") : t("common.create", "Create")}
                 </button>
               </div>
             </form>

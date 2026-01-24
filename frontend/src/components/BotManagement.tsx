@@ -286,7 +286,7 @@ function BotManagement({ onUpdate }: BotManagementProps) {
               <th>ID</th>
               {isAdmin && <th>{t("BotManagement.user", "User")}</th>}
               <th>{t("BotManagement.bot-name", "Bot Name")}</th>
-              <th>Status</th>
+              <th>{t("common.status", "Status")}</th>
               {isAdmin && <th>{t("BotManagement.subscription", "Subscription")}</th>}
               {isAdmin && <th>{t("BotManagement.price", "Price")}</th>}
               {isAdmin && <th>{t("BotManagement.expires", "Expires")}</th>}
