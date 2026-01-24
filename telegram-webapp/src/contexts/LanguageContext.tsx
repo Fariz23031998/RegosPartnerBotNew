@@ -16,7 +16,9 @@ interface LanguageProviderProps {
 }
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>("en");
+  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>(() =>
+    languageService.detectTelegramLanguage()
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [, setTranslations] = useState<TranslationDictionary>({});
 

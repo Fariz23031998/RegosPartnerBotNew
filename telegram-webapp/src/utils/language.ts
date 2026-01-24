@@ -19,19 +19,48 @@ class LanguageService {
   private translations: TranslationDictionary = {};
   private supportedLanguages: SupportedLanguage[] = ["uz", "ru", "en"];
 
+  private normalizeLanguageCode(code: unknown): SupportedLanguage | null {
+    if (typeof code !== "string") return null;
+
+    const trimmed = code.trim();
+    if (!trimmed) return null;
+
+    const langCode = trimmed.split(/[-_]/)[0].toLowerCase();
+    if (this.supportedLanguages.includes(langCode as SupportedLanguage)) {
+      return langCode as SupportedLanguage;
+    }
+
+    return null;
+  }
+
+  private extractLanguageFromInitData(initData: unknown): SupportedLanguage | null {
+    if (typeof initData !== "string") return null;
+    if (!initData.trim()) return null;
+
+    try {
+      const params = new URLSearchParams(initData);
+      const userStr = params.get("user");
+      if (!userStr) return null;
+
+      const user = JSON.parse(userStr);
+      return this.normalizeLanguageCode(user?.language_code);
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Always detect language from Telegram Mini App
    */
   detectTelegramLanguage(): SupportedLanguage {
     const tg = (window as any).Telegram?.WebApp;
-    const tgLang = tg?.initDataUnsafe?.user?.language_code;
 
-    if (tgLang) {
-      const langCode = tgLang.split("-")[0].toLowerCase();
-      if (this.supportedLanguages.includes(langCode as SupportedLanguage)) {
-        return langCode as SupportedLanguage;
-      }
-    }
+    const fromUnsafe = this.normalizeLanguageCode(tg?.initDataUnsafe?.user?.language_code);
+    if (fromUnsafe) return fromUnsafe;
+
+    // Fallback to parsing `initData` (still Telegram-provided)
+    const fromInitData = this.extractLanguageFromInitData(tg?.initData);
+    if (fromInitData) return fromInitData;
 
     return "en";
   }
