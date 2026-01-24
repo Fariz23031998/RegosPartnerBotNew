@@ -49,18 +49,50 @@ class LanguageService {
     }
   }
 
-  /**
-   * Always detect language from Telegram Mini App
-   */
-  detectTelegramLanguage(): SupportedLanguage {
+  private tryGetTelegramLanguage(): SupportedLanguage | null {
     const tg = (window as any).Telegram?.WebApp;
 
     const fromUnsafe = this.normalizeLanguageCode(tg?.initDataUnsafe?.user?.language_code);
     if (fromUnsafe) return fromUnsafe;
 
-    // Fallback to parsing `initData` (still Telegram-provided)
     const fromInitData = this.extractLanguageFromInitData(tg?.initData);
     if (fromInitData) return fromInitData;
+
+    return null;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Always detect language from Telegram Mini App
+   */
+  detectTelegramLanguage(): SupportedLanguage {
+    return this.tryGetTelegramLanguage() ?? "en";
+  }
+
+  /**
+   * Telegram clients (especially mobile) can expose WebApp data slightly later
+   * than the first render. This waits briefly for Telegram-provided language.
+   */
+  async detectTelegramLanguageWithRetry(
+    timeoutMs: number = 800,
+    pollIntervalMs: number = 50
+  ): Promise<SupportedLanguage> {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const lang = this.tryGetTelegramLanguage();
+      if (lang) return lang;
+
+      // If Telegram WebApp is not present at all, don't delay startup.
+      if (!(window as any).Telegram?.WebApp) {
+        return "en";
+      }
+
+      await this.sleep(pollIntervalMs);
+    }
 
     return "en";
   }
@@ -70,7 +102,7 @@ class LanguageService {
    * Language is ALWAYS taken from Telegram
    */
   async initialize(): Promise<SupportedLanguage> {
-    const telegramLang = this.detectTelegramLanguage();
+    const telegramLang = await this.detectTelegramLanguageWithRetry();
     this.currentLanguage = telegramLang;
 
     await this.loadLanguage(telegramLang);
