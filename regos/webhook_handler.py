@@ -12,12 +12,16 @@ from bot_manager import bot_manager
 from regos.wholesale import get_wholesale_document, get_wholesale_operations, format_wholesale_receipt
 from regos.stock import get_stock_by_id
 from regos.payment import get_payment_document, format_payment_notification
+from services.translator_service import translator_service
 
+
+t = translator_service.get
 logger = logging.getLogger(__name__)
 
 # Track processed webhook event IDs to prevent duplicate processing
 # Store event_id -> timestamp, cleanup old entries periodically
 processed_webhook_events: Dict[str, datetime] = {}
+
 
 
 async def get_wholesale_return_document(
@@ -413,6 +417,7 @@ async def process_document_event(
     # Extract partner ID and oked from partner object
     partner_id = partner.get("id")
     oked = partner.get("oked")
+    lang_code = partner.get("rs", "en")
     
     # Get warehouse/stock information for display name
     # Try to extract stock_id from different possible locations in document
@@ -459,6 +464,7 @@ async def process_document_event(
         else:
             logger.warning(f"⚠️ Partner {partner_id} oked field has unexpected type: {type(oked)}")
             return False
+
         
         # Format receipt message (with cancelled notice if applicable)
         is_return = document_type in ["wholesale_return", "return_purchase"]
@@ -469,7 +475,8 @@ async def process_document_event(
             warehouse_name,
             is_cancelled=is_cancelled,
             is_return=is_return,
-            use_cost=use_cost
+            use_cost=use_cost,
+            lang_code=lang_code
         )
         
         # Send message via Telegram bot
@@ -535,6 +542,7 @@ async def process_payment_event(
     # Extract partner ID and oked from partner object
     partner_id = partner.get("id")
     oked = partner.get("oked")
+    lang_code = partner.get("rs", "en")
     
     # Get warehouse/stock information for display name
     stock_id = None
@@ -550,14 +558,14 @@ async def process_payment_event(
     if stock_id:
         stock = await get_stock_by_id(regos_integration_token, stock_id)
         if stock:
-            warehouse_name = stock.get("name", "Склад")
+            warehouse_name = stock.get("name", t("warehouse.name", lang_code, default="Склад"))
             logger.info(f"Found warehouse: {warehouse_name} (ID: {stock_id})")
         else:
             logger.warning(f"⚠️ Stock {stock_id} not found, using default name")
             warehouse_name = "Склад"
     else:
         logger.warning(f"⚠️ Payment document {document_id} does not have stock_id or stock object, using default name")
-        warehouse_name = "Склад"
+        warehouse_name = t("warehouse.name", lang_code, default="Склад")
     
     logger.info(f"Found partner object in payment document: Partner ID: {partner_id}, Warehouse: {warehouse_name}")
     
@@ -585,7 +593,8 @@ async def process_payment_event(
         payment_message = format_payment_notification(
             document,
             warehouse_name,
-            is_cancelled=is_cancelled
+            is_cancelled=is_cancelled,
+            lang_code=lang_code
         )
         
         # Send message via Telegram bot

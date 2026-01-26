@@ -15,6 +15,6 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '/api'),
       },
     },
-    allowedHosts: ['38cb8612f44d.ngrok-free.app'],
+    allowedHosts: ['mini-bot.in.ngrok.io'],
   },
 })

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FaShoppingCart, FaArrowLeft, FaImages } from 'react-icons/fa'
+import { FaBasketShopping } from "react-icons/fa6"
+import { FaReceipt } from "react-icons/fa";
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
 import Cart from './Cart'
@@ -252,13 +254,13 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
             className={`shop-tab ${activeTab === 'products' ? 'active' : ''}`}
             onClick={() => setActiveTab('products')}
           >
-            {t("shop.products", "Товары")}
+            <FaBasketShopping size={30} />
           </button>
           <button
             className={`shop-tab ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
-            {t("shop.orders", "Заказы")}
+            <FaReceipt size={30} />
           </button>
         </div>
         {activeTab === 'products' && (

@@ -23,7 +23,7 @@ interface DocumentListProps {
   onBack?: () => void
 }
 
-type DocumentType = 'purchase' | 'purchase-return' | 'wholesale' | 'wholesale-return' | 'payment' | 'balance'
+type DocumentType = 'wholesale' | 'wholesale-return' | 'purchase' | 'purchase-return' | 'payment' | 'balance'
 
 interface DocumentTotals {
   [documentType: string]: {
@@ -32,11 +32,11 @@ interface DocumentTotals {
 }
 
 function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentListProps) {
-  const [activeTab, setActiveTab] = useState<DocumentType>('purchase')
+  const [activeTab, setActiveTab] = useState<DocumentType>('wholesale')
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedDocument, setSelectedDocument] = useState<{ id: number; type: 'purchase' | 'purchase-return' | 'wholesale' | 'wholesale-return' } | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<{ id: number; type: 'wholesale' | 'wholesale-return' | 'purchase' | 'purchase-return' } | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [documentTotals, setDocumentTotals] = useState<DocumentTotals>({})
   const [showTotalsSection, setShowTotalsSection] = useState(false)

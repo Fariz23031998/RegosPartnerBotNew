@@ -19,9 +19,11 @@ from regos.api import regos_async_api_request
 from regos.document_excel import generate_partner_balance_excel
 from core.utils import convert_to_unix_timestamp
 from core.number_format import format_number
+from services.translator_service import translator_service
 
 logger = logging.getLogger(__name__)
 
+t = translator_service.get
 
 class ScheduleExecutor:
     """Executes scheduled bot tasks using APScheduler"""
@@ -245,7 +247,7 @@ class ScheduleExecutor:
             end_date_str = end_date.strftime("%Y-%m-%d")
             
             # Send balance to each partner
-            for partner_id, telegram_chat_id in partners_with_telegram:
+            for partner_id, telegram_chat_id, lang_code in partners_with_telegram:
                 try:
                     await self._send_partner_balance(
                         regos_token,
@@ -255,7 +257,8 @@ class ScheduleExecutor:
                         firms,
                         currencies,
                         start_date_str,
-                        end_date_str
+                        end_date_str,
+                        lang_code=lang_code
                     )
                     # Small delay between sends to avoid rate limiting
                     await asyncio.sleep(1)
@@ -306,6 +309,7 @@ class ScheduleExecutor:
                 
                 partner_id = partner.get("id")
                 oked = partner.get("oked")
+                lang_code = partner.get("rs", "en")
                 
                 if partner_id and oked is not None:
                     try:
@@ -314,10 +318,10 @@ class ScheduleExecutor:
                             oked_cleaned = oked.strip()
                             if oked_cleaned:
                                 telegram_chat_id = int(oked_cleaned)
-                                partners_with_telegram.append((partner_id, telegram_chat_id))
+                                partners_with_telegram.append((partner_id, telegram_chat_id, lang_code))
                         elif isinstance(oked, (int, float)):
                             telegram_chat_id = int(oked)
-                            partners_with_telegram.append((partner_id, telegram_chat_id))
+                            partners_with_telegram.append((partner_id, telegram_chat_id, lang_code))
                     except (ValueError, TypeError):
                         continue
             
@@ -372,7 +376,8 @@ class ScheduleExecutor:
         firms: List[Dict],
         currencies: List[Dict],
         start_date: str,
-        end_date: str
+        end_date: str,
+        lang_code: str = "en"
     ):
         """Send partner balance Excel file to Telegram chat with text message if balance is negative"""
         try:
@@ -502,7 +507,7 @@ class ScheduleExecutor:
             
             message_lines.extend([
                 "",
-                "Подробная информация в прикрепленном файле."
+                t("partner_balance.detailed-information-in-attached-file", lang_code, default="Подробная информация в прикрепленном файле.")
             ])
             
             text_message = "\n".join(message_lines)
@@ -515,10 +520,10 @@ class ScheduleExecutor:
             )
             
             # Generate Excel file
-            excel_path = generate_partner_balance_excel(all_balance_entries)
+            excel_path = generate_partner_balance_excel(all_balance_entries, lang_code=lang_code)
             
             # Send Excel file to Telegram
-            caption = f"📊 Баланс партнера (ID: {partner_id})"
+            caption = f"{t('partner_balance.balance', lang_code, default='📊 Баланс партнера')} (ID: {partner_id})"
             result = await bot_manager.send_document(
                 telegram_token,
                 telegram_chat_id,

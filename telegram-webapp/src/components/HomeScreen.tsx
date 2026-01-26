@@ -1,5 +1,6 @@
 import './HomeScreen.css'
 import { useLanguage } from "../contexts/LanguageContext"
+import { LanguageSelector } from "../components/LanguageSelector"
 
 interface HomeScreenProps {
   onNavigate: (page: 'reports' | 'shop') => void
@@ -11,7 +12,8 @@ function HomeScreen({ onNavigate, showOnlineStore }: HomeScreenProps) {
   return (
     <div className="home-screen">
       <div className="home-container">
-        <h1 className="home-title">{t("home.welcome", "Welcome")}</h1>
+        <LanguageSelector />
+        <h1 className="home-title">{t("home.welcome", "Добро пожаловать")}</h1>
         <div className="home-icons">
           <button 
             className="home-icon-button"

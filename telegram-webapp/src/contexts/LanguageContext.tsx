@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { languageService, SupportedLanguage, TranslationDictionary } from "../utils/language";
 
 interface LanguageContextType {
@@ -16,17 +16,9 @@ interface LanguageProviderProps {
 }
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>(() =>
-    languageService.detectTelegramLanguage()
-  );
+  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>("en");
   const [isLoading, setIsLoading] = useState(true);
   const [, setTranslations] = useState<TranslationDictionary>({});
-  const currentLanguageRef = useRef<SupportedLanguage>(currentLanguage);
-  const syncInProgressRef = useRef(false);
-
-  useEffect(() => {
-    currentLanguageRef.current = currentLanguage;
-  }, [currentLanguage]);
 
   useEffect(() => {
     const initializeLanguage = async () => {
@@ -42,49 +34,6 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     };
 
     initializeLanguage();
-  }, []);
-
-  useEffect(() => {
-    const syncFromTelegram = async () => {
-      if (syncInProgressRef.current) return;
-      syncInProgressRef.current = true;
-
-      try {
-        // Detect first (fast); only show loading if language actually changes.
-        const detectedLang = await languageService.detectTelegramLanguageWithRetry(800, 50);
-        const prevLang = currentLanguageRef.current;
-
-        if (detectedLang !== prevLang) {
-          setIsLoading(true);
-          await languageService.loadLanguage(detectedLang);
-          setCurrentLanguage(detectedLang);
-          setTranslations({}); // Force re-render
-        }
-      } catch (error) {
-        console.error("Failed to sync Telegram language:", error);
-      } finally {
-        syncInProgressRef.current = false;
-        setIsLoading(false);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void syncFromTelegram();
-      }
-    };
-
-    const handleFocus = () => {
-      void syncFromTelegram();
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-    };
   }, []);
 
   const changeLanguage = async (lang: SupportedLanguage) => {

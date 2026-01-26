@@ -6,6 +6,8 @@ import logging
 from typing import Dict, Optional
 import httpx
 from datetime import datetime
+
+from services.translator_service import translator_service
 from core.message_utils import split_message
 from core.telegram_webhook import (
     get_bot_info,
@@ -18,6 +20,8 @@ from core.telegram_webhook import (
 
 logger = logging.getLogger(__name__)
 
+t = translator_service.get
+
 
 class BotManager:
     """Manages multiple Telegram bots asynchronously"""
@@ -25,6 +29,9 @@ class BotManager:
     def __init__(self):
         self.bots: Dict[str, dict] = {}  # token -> bot_info
         self.webhook_url_base: Optional[str] = None
+        # Temporary storage for contact data while user selects notification language
+        # chat_id -> {phone, first_name, last_name, bot_id}
+        self.pending_lang_selection: Dict[int, dict] = {}
         # Temporary storage for registration data (chat_id -> registration_data)
         # Cleared after registration or timeout
         self.pending_registrations: Dict[int, dict] = {}
@@ -149,12 +156,73 @@ class BotManager:
             chat_id = callback_query.get("message", {}).get("chat", {}).get("id")
             from_user = callback_query.get("from", {})
             user_id = from_user.get("id")
+            fallback_lang_code = from_user.get("language_code", "en")
             
             logger.info(f"Received callback query: data='{callback_data}', chat_id={chat_id}, user_id={user_id}")
+
+            if not chat_id:
+                logger.error(f"Callback query has no chat_id: {callback_query}")
+                return None
+
+            callback_query_id = callback_query.get("id")
+
+            # Handle notification language selection callbacks
+            if callback_data.startswith("notification_lang_code_"):
+                prefix = "notification_lang_code_"
+                rest = callback_data[len(prefix):]
+                selected_lang_code = (rest.split("_", 1)[0] or "").lower()
+
+                if selected_lang_code not in ("uz", "ru", "en"):
+                    await self.answer_callback_query(token, callback_query_id, "")
+                    return await self.send_message(
+                        token,
+                        chat_id,
+                        t(
+                            "bot_manager.notification-lang-code.error",
+                            fallback_lang_code,
+                            default="Произошла ошибка при обработке вашего запроса."
+                        )
+                    )
+
+                # Continue flow after contact share using stored contact data
+                pending = self.pending_lang_selection.get(chat_id)
+                if not pending:
+                    await self.answer_callback_query(token, callback_query_id, "")
+                    return await self.send_message(
+                        token,
+                        chat_id,
+                        t(
+                            "bot_manager.notification-lang-code.error",
+                            fallback_lang_code,
+                            default="❌ Произошла ошибка. Пожалуйста, отправьте команду /start снова и поделитесь контактом."
+                        )
+                    )
+
+                # Clear pending contact data now that we have lang_code
+                del self.pending_lang_selection[chat_id]
+
+                await self.answer_callback_query(token, callback_query_id, "")
+
+                bot_id = pending.get("bot_id")
+                phone_number = pending.get("phone")
+                user_first_name = pending.get("first_name", t("bot_manager.partner-name", selected_lang_code, default="Партнер"))
+                user_last_name = pending.get("last_name", "")
+
+                return await self.handle_contact_shared(
+                    token,
+                    chat_id,
+                    phone_number,
+                    regos_integration_token,
+                    bot_id,
+                    user_first_name,
+                    user_last_name,
+                    selected_lang_code
+                )
             
             # Handle registration confirmation callbacks
             if callback_data.startswith("register_yes_") or callback_data.startswith("register_no_"):
-                callback_query_id = callback_query.get("id")
+                stored_lang_code = (self.pending_registrations.get(chat_id) or {}).get("lang_code")
+                effective_lang_code = stored_lang_code or fallback_lang_code
                 result = await self.handle_registration_callback(
                     token,
                     callback_data,
@@ -162,15 +230,24 @@ class BotManager:
                     user_id,
                     regos_integration_token,
                     bot_id=bot_data.get("bot_id"),
-                    callback_query_id=callback_query_id
+                    callback_query_id=callback_query_id,
+                    lang_code=effective_lang_code
                 )
                 # Answer callback query after handling
                 await self.answer_callback_query(token, callback_query_id, "")
                 return result
-            
-            # Answer callback query to remove loading state
-            await self.answer_callback_query(token, callback_query.get("id"))
-            return None
+
+            else:
+                await self.answer_callback_query(token, callback_query_id, "")
+                return await self.send_message(
+                    token,
+                    chat_id,
+                    t(
+                        "bot_manager.notification-lang-code.error",
+                        fallback_lang_code,
+                        default="Произошла ошибка при обработке вашего запроса."
+                    )
+                )
         
         # Handle message updates
         if "message" in update:
@@ -183,6 +260,8 @@ class BotManager:
             if not chat_id:
                 logger.error(f"Message has no chat_id: {message}")
                 return None
+
+            lang_code = message.get("from", {}).get("language_code", "en")
             
             # Handle contact sharing first (if user shares contact)
             if "contact" in message:
@@ -200,23 +279,25 @@ class BotManager:
                     bot_id = bot_data.get("bot_id")
                     # Get user info from message
                     from_user = message.get("from", {})
-                    user_first_name = from_user.get("first_name", "Партнер")
+                    user_first_name = from_user.get("first_name", t("bot_manager.partner-name", lang_code, default="Партнер"))
                     user_last_name = from_user.get("last_name", "")
-                    return await self.handle_contact_shared(
-                        token, 
-                        chat_id, 
-                        phone_number, 
-                        regos_integration_token,
-                        bot_id,
-                        user_first_name,
-                        user_last_name
-                    )
+
+                    # Store contact data and ask for notification language (UZ/RU/EN)
+                    self.pending_lang_selection[chat_id] = {
+                        "phone": phone_number,
+                        "first_name": user_first_name,
+                        "last_name": user_last_name,
+                        "chat_id": chat_id,
+                        "bot_id": bot_id
+                    }
+
+                    return await self.get_notification_lang_code(chat_id, token, lang_code)
                 else:
                     return await self.send_message(
                         token, 
                         chat_id, 
-                        "❌ Пожалуйста, поделитесь своим контактом, а не контактом другого пользователя.\n\n"
-                        "Нажмите кнопку '📱 Поделиться контактом' для отправки вашего собственного контакта."
+                        t("bot_manager.contact-shared.error", lang_code, default="❌ Пожалуйста, поделитесь своим контактом, а не контактом другого пользователя.\n\n") + "\n\n",
+                        t("bot_manager.contact-shared.share-contact-button", lang_code, default="Нажмите кнопку '📱 Поделиться контактом' для отправки вашего собственного контакта.")
                     )
             
             # Handle /start command
@@ -224,7 +305,7 @@ class BotManager:
                 logger.info(f"Handling /start command for chat {chat_id}")
                 try:
                     bot_id = bot_data.get("bot_id")
-                    result = await self.handle_start_command(token, chat_id, regos_integration_token, bot_id)
+                    result = await self.handle_start_command(token, chat_id, regos_integration_token, bot_id, lang_code)
                     if result:
                         logger.info(f"Successfully handled /start command for chat {chat_id}")
                     else:
@@ -236,7 +317,8 @@ class BotManager:
                     await self.send_message(
                         token,
                         chat_id,
-                        "❌ Произошла ошибка при обработке команды /start. Пожалуйста, попробуйте позже или обратитесь к администратору."
+                        t("bot_manager.start-command.error", lang_code, 
+                        default="❌ Произошла ошибка при обработке команды /start. Пожалуйста, попробуйте позже или обратитесь к администратору.")
                     )
                     return None
             
@@ -247,7 +329,7 @@ class BotManager:
                 return await self.send_message(
                     token,
                     chat_id,
-                    "👋 Для начала работы, пожалуйста, отправьте команду /start и поделитесь своим контактом."
+                    t("bot_manager.start-command.reminder", lang_code, default="👋 Для начала работы, пожалуйста, отправьте команду /start и поделитесь своим контактом.")
                 )
         else:
             logger.debug(f"Update does not contain a message, update keys: {update.keys()}")
@@ -403,7 +485,8 @@ class BotManager:
         user_id: int,
         regos_integration_token: Optional[str],
         bot_id: Optional[int] = None,
-        callback_query_id: Optional[str] = None
+        callback_query_id: Optional[str] = None,
+        lang_code: str = "en"
     ) -> Optional[dict]:
         """Handle registration confirmation callback"""
         logger.info(f"Handling registration callback: {callback_data}, chat_id={chat_id}, user_id={user_id}")
@@ -413,11 +496,11 @@ class BotManager:
             if chat_id in self.pending_registrations:
                 del self.pending_registrations[chat_id]
             if callback_query_id:
-                await self.answer_callback_query(token, callback_query_id, "Отменено")
+                await self.answer_callback_query(token, callback_query_id, t("bot_manager.registration-declined", lang_code, default="Отменено"))
             return await self.send_message(
                 token,
                 chat_id,
-                "Хорошо, если передумаете, отправьте команду /start снова."
+                t("bot_manager.registration-declined", lang_code, default="Хорошо, если передумаете, отправьте команду /start снова.")
             )
         
         if not callback_data.startswith("register_yes_"):
@@ -428,11 +511,11 @@ class BotManager:
         # User confirmed registration - get registration data from temporary storage
         if not regos_integration_token:
             if callback_query_id:
-                await self.answer_callback_query(token, callback_query_id, "Ошибка: интеграция не настроена")
+                await self.answer_callback_query(token, callback_query_id, t("bot_manager.registration-error-integration-not-configured", lang_code, default="Ошибка: интеграция не настроена"))
             return await self.send_message(
                 token,
                 chat_id,
-                "Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору."
+                t("bot_manager.registration-error-integration-not-configured", lang_code, default="Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору.")
             )
         
         # Get registration data from temporary storage
@@ -440,15 +523,15 @@ class BotManager:
         if not registration_data:
             logger.error(f"No pending registration data found for chat_id={chat_id}")
             if callback_query_id:
-                await self.answer_callback_query(token, callback_query_id, "Ошибка: данные не найдены")
+                await self.answer_callback_query(token, callback_query_id, t("bot_manager.registration-error-data-not-found", lang_code, default="Ошибка: данные не найдены"))
             return await self.send_message(
                 token,
                 chat_id,
-                "❌ Произошла ошибка. Пожалуйста, отправьте команду /start снова и поделитесь контактом."
+                t("bot_manager.registration-error-data-not-found", lang_code, default="❌ Произошла ошибка. Пожалуйста, отправьте команду /start снова и поделитесь контактом.")
             )
         
         phone_number = registration_data.get("phone")
-        user_first_name = registration_data.get("first_name", "Партнер")
+        user_first_name = registration_data.get("first_name", t("bot_manager.partner-name", lang_code, default="Партнер"))
         user_last_name = registration_data.get("last_name", "")
         stored_bot_id = registration_data.get("bot_id")
         
@@ -475,12 +558,12 @@ class BotManager:
                 logger.error(f"Error fetching bot settings: {e}", exc_info=True)
         
         if callback_query_id:
-            await self.answer_callback_query(token, callback_query_id, "Регистрация...")
+            await self.answer_callback_query(token, callback_query_id, t("bot_manager.registration-processing", lang_code, default="Регистрация..."))
         
         # Register partner directly (we already have contact info from when they shared it)
         from regos.partner import register_partner
         
-        await self.send_message(token, chat_id, "📝 Регистрация нового партнера...")
+        await self.send_message(token, chat_id, t("bot_manager.registration-processing", lang_code, default="📝 Регистрация нового партнера..."))
         
         # Use provided user names
         full_name = f"{user_first_name} {user_last_name}".strip() if user_last_name else user_first_name
@@ -492,7 +575,8 @@ class BotManager:
             user_first_name,
             full_name,
             phone_number,
-            str(chat_id)
+            str(chat_id),
+            lang_code
         )
         
         if registration_result and registration_result.get("ok"):
@@ -500,17 +584,17 @@ class BotManager:
             return await self.send_message(
                 token,
                 chat_id,
-                f"✅ Регистрация успешна!\n\n"
+                t("bot_manager.registration-success", lang_code, default=f"✅ Регистрация успешна!\n\n"
                 f"Вы зарегистрированы как новый партнер.\n"
                 f"ID партнера: {new_partner_id}\n"
-                f"Теперь вы будете получать уведомления через этого бота."
+                f"Теперь вы будете получать уведомления через этого бота.")
             )
         else:
             return await self.send_message(
                 token,
                 chat_id,
-                "❌ Произошла ошибка при регистрации.\n\n"
-                "Пожалуйста, попробуйте еще раз или обратитесь к администратору."
+                t("bot_manager.registration-error", lang_code, default=f"❌ Произошла ошибка при регистрации.\n\n"
+                f"Пожалуйста, попробуйте еще раз или обратитесь к администратору.")
             )
     
     async def handle_start_command(
@@ -518,7 +602,8 @@ class BotManager:
         token: str, 
         chat_id: int, 
         regos_integration_token: Optional[str],
-        bot_id: Optional[int] = None
+        bot_id: Optional[int] = None,
+        lang_code: str = "en"
     ) -> Optional[dict]:
         """Handle /start command - request contact to check if user exists by phone number"""
         logger.info(f"handle_start_command called: chat_id={chat_id}, has_regos_token={regos_integration_token is not None}, bot_id={bot_id}")
@@ -528,7 +613,7 @@ class BotManager:
             return await self.send_message(
                 token,
                 chat_id,
-                "Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору."
+                t("bot_manager.start-command.error-integration-not-configured", lang_code, default="Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору.")
             )
         
         # Get bot settings to check can_register
@@ -550,16 +635,15 @@ class BotManager:
         # Always request contact first - we'll check by phone number in handle_contact_shared
         # After checking, if not found and can_register is true, we'll show registration confirmation
         welcome_text = (
-            "Добро пожаловать! 👋\n\n"
-            "Для продолжения работы, пожалуйста, поделитесь своим контактом, "
-            "чтобы мы могли найти ваш аккаунт в системе."
-        )
+            t("bot_manager.start-command.welcome", lang_code, default="Добро пожаловать! 👋\n\n") + "\n\n"
+            + t("bot_manager.start-command.reminder", lang_code, default="Для продолжения работы, пожалуйста, поделитесь своим контактом, "
+            + "чтобы мы могли найти ваш аккаунт в системе."))
         
         # Create keyboard with contact request button
         keyboard = {
             "keyboard": [[
                 {
-                    "text": "📱 Поделиться контактом",
+                    "text": t("bot_manager.start-command.share-contact-button", lang_code, default="📱 Поделиться контактом"),
                     "request_contact": True
                 }
             ]],
@@ -590,19 +674,20 @@ class BotManager:
         regos_integration_token: Optional[str],
         bot_id: Optional[int] = None,
         user_first_name: str = "Партнер",
-        user_last_name: str = ""
+        user_last_name: str = "",
+        lang_code: str = "en"
     ) -> Optional[dict]:
         """Handle contact sharing - search partner and update REGOS, or register if not found"""
         if not regos_integration_token:
             return await self.send_message(
                 token,
                 chat_id,
-                "Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору."
+                t("bot_manager.contact-shared.error-integration-not-configured", lang_code, default="Ошибка: Интеграция с REGOS не настроена. Обратитесь к администратору.")
             )
         
         try:
             # Import REGOS partner functions
-            from regos.partner import search_partner_by_phone, update_partner_telegram_id, register_partner
+            from regos.partner import search_partner_by_phone, update_partner_telegram_id
             
             # Get bot settings to check can_register and partner_group_id
             can_register = False
@@ -627,7 +712,7 @@ class BotManager:
                 logger.warning(f"bot_id is None, cannot fetch bot settings. Defaulting can_register=False")
             
             # Show processing message
-            await self.send_message(token, chat_id, "🔍 Поиск вашего аккаунта в системе по номеру телефона...")
+            await self.send_message(token, chat_id, t("bot_manager.contact-shared.processing", lang_code, default="🔍 Поиск вашего аккаунта в системе по номеру телефона..."))
             
             # Search for partner by phone number (this is how we determine if user exists)
             partner = await search_partner_by_phone(regos_integration_token, phone_number)
@@ -644,13 +729,14 @@ class BotManager:
                         "first_name": user_first_name,
                         "last_name": user_last_name,
                         "chat_id": chat_id,
-                        "bot_id": bot_id
+                        "bot_id": bot_id,
+                        "lang_code": lang_code
                     }
                     self.pending_registrations[chat_id] = registration_data
                     logger.info(f"Stored registration data for chat_id={chat_id}, phone={phone_number}")
                     
                     welcome_text = (
-                        "Вы не зарегистрированы. Хотите зарегистрироваться сейчас?"
+                        t("bot_manager.contact-shared.not-registered", lang_code, default="Вы не зарегистрированы. Хотите зарегистрироваться сейчас?")
                     )
                     
                     # Create inline keyboard with Да and Нет buttons
@@ -658,11 +744,11 @@ class BotManager:
                     keyboard = {
                         "inline_keyboard": [[
                             {
-                                "text": "Да",
+                                "text": t("bot_manager.contact-shared.yes", lang_code, default="Да"),
                                 "callback_data": f"register_yes_{chat_id}"
                             },
                             {
-                                "text": "Нет",
+                                "text": t("bot_manager.contact-shared.no", lang_code, default="Нет"),
                                 "callback_data": f"register_no_{chat_id}"
                             }
                         ]]
@@ -679,27 +765,39 @@ class BotManager:
                     return await self.send_message(
                         token,
                         chat_id,
-                        "❌ Извините, ваш аккаунт не найден в системе по номеру телефона.\n\n"
-                        "Пожалуйста, убедитесь, что вы зарегистрированы как партнер в REGOS, "
-                        "или обратитесь к администратору для регистрации."
+                        t("bot_manager.contact-shared.not-found", lang_code, default="❌ Извините, ваш аккаунт не найден в системе по номеру телефона.\n\n"
+                        f"Пожалуйста, убедитесь, что вы зарегистрированы как партнер в REGOS, "
+                        f"или обратитесь к администратору для регистрации.")
                     )
             
             # Partner found by phone number - user exists in system
             partner_id = partner.get("id")
-            partner_name = partner.get("name", "Партнер")
+            partner_name = partner.get("name", t("bot_manager.partner-name", lang_code, default="Партнер"))
             partner_oked = partner.get("oked", "")
             
             # Check if this Telegram ID is already linked to this partner
             if partner_oked and str(partner_oked) == str(chat_id):
+                # Already linked, but still update rs (notification language) on REGOS
+                try:
+                    await update_partner_telegram_id(
+                        regos_integration_token,
+                        partner_id,
+                        str(chat_id),
+                        partner,
+                        lang_code=lang_code
+                    )
+                except Exception as e:
+                    logger.error(f"Error updating partner language for already-linked partner {partner_id}: {e}", exc_info=True)
                 # Already linked - user is already registered
                 logger.info(f"Partner {partner_id} ({partner_name}) already linked to Telegram chat ID: {chat_id}")
+                contact_shared_already_registered_text = f"✅ Вы уже зарегистрированы, {partner_name}!\n\n"
+                contact_shared_already_registered_text += f"Ваш Telegram аккаунт уже привязан к вашему профилю в системе.\n"
+                contact_shared_already_registered_text += f"ID партнера: {partner_id}\n\n"
+                contact_shared_already_registered_text += f"Вы будете получать уведомления через этого бота."
                 return await self.send_message(
                     token,
                     chat_id,
-                    f"✅ Вы уже зарегистрированы, {partner_name}!\n\n"
-                    f"Ваш Telegram аккаунт уже привязан к вашему профилю в системе.\n"
-                    f"ID партнера: {partner_id}\n\n"
-                    f"Вы будете получать уведомления через этого бота."
+                    t("bot_manager.contact-shared.already-registered", lang_code, default=contact_shared_already_registered_text, partner_name=partner_name, partner_id=partner_id)
                 )
             
             # Partner found by phone number but not linked to this Telegram ID - update it
@@ -710,35 +808,63 @@ class BotManager:
                 regos_integration_token,
                 partner_id,
                 str(chat_id),
-                partner
+                partner,
+                lang_code=lang_code
             )
             
             if success:
+                contact_shared_success_text = f"✅ Отлично, {partner_name}!\n\n"
+                contact_shared_success_text += f"Ваш Telegram аккаунт успешно привязан к вашему профилю в системе.\n"
+                contact_shared_success_text += f"ID партнера: {partner_id}\n"
+                contact_shared_success_text += f"Теперь вы будете получать уведомления через этого бота."
+                logger.info(f"partner_name: {partner_name}, partner_id: {partner_id}")
+                t_text = t("bot_manager.contact-shared.success", lang_code, default=contact_shared_success_text, partner_name=partner_name, partner_id=partner_id)
                 return await self.send_message(
                     token,
                     chat_id,
-                    f"✅ Отлично, {partner_name}!\n\n"
-                    f"Ваш Telegram аккаунт успешно привязан к вашему профилю в системе.\n"
-                    f"ID партнера: {partner_id}\n"
-                    f"Теперь вы будете получать уведомления через этого бота."
+                    t_text
                 )
             else:
                 return await self.send_message(
                     token,
                     chat_id,
-                    "⚠️ Ваш аккаунт найден по номеру телефона, но произошла ошибка при привязке Telegram.\n\n"
-                    "Пожалуйста, попробуйте еще раз или обратитесь к администратору."
-                )
+                    t("bot_manager.contact-shared.error-telegram-link", lang_code, default="⚠️ Ваш аккаунт найден по номеру телефона, но произошла ошибка при привязке Telegram.\n\n"
+                    f"Пожалуйста, попробуйте еще раз или обратитесь к администратору."))
                 
         except Exception as e:
             logger.error(f"Error handling contact share: {e}", exc_info=True)
             return await self.send_message(
                 token,
                 chat_id,
-                "❌ Произошла ошибка при обработке вашего запроса.\n\n"
-                "Пожалуйста, попробуйте еще раз позже или обратитесь к администратору."
-            )
-    
+                t("bot_manager.contact-shared.error-processing", lang_code, default="❌ Произошла ошибка при обработке вашего запроса.\n\n"
+                f"Пожалуйста, попробуйте еще раз позже или обратитесь к администратору."))
+
+    async def get_notification_lang_code(self, chat_id: int, token: str, lang_code: str = "en") -> str:
+        """Get language code for notification"""
+        keyboard = {
+            "inline_keyboard": [[
+                {
+                    "text": "UZ",
+                    "callback_data": f"notification_lang_code_uz_{chat_id}"
+                },
+                {
+                    "text": "RU",
+                    "callback_data": f"notification_lang_code_ru_{chat_id}"
+                },
+                {
+                    "text": "EN",
+                    "callback_data": f"notification_lang_code_en_{chat_id}"
+                }
+            ]]
+        }
+        result = await self.send_message(
+            token,
+            chat_id,
+            t("bot_manager.notification-lang-code", lang_code, default="Выберите язык для уведомлений:"),
+            reply_markup=keyboard
+        )
+        return result
+
     async def get_bot_token_from_update(self, update: dict) -> Optional[str]:
         """Extract bot token from update (if stored in webhook path)"""
         # This is a helper method - in practice, you'd match the webhook path

@@ -3,12 +3,16 @@ REGOS WholeSale document operations.
 """
 import logging
 from typing import Optional, Dict, Any, List
+
 from core.number_format import format_number
 from regos.api import regos_async_api_request
 from core.partner_terminology import get_partner_document_type_name
 from config import APP_NAME
+from services.translator_service import translator_service
 
 logger = logging.getLogger(APP_NAME)
+
+t = translator_service.get
 
 
 async def get_wholesale_document(
@@ -135,7 +139,8 @@ def format_wholesale_receipt(
     warehouse_name: Optional[str] = None,
     is_cancelled: bool = False,
     is_return: bool = False,
-    use_cost: bool = False
+    use_cost: bool = False,
+    lang_code: str = "en"
 ) -> str:
     """
     Format a document (wholesale, purchase, or their returns) as a nicely formatted receipt message for Telegram.
@@ -173,7 +178,7 @@ def format_wholesale_receipt(
     # Add cancelled notice at the top if applicable
     if is_cancelled:
         message_parts.extend([
-            "❌ *ОТМЕНЕНО*",
+            "❌ *" + t("wholesale.cancelled", lang_code, default="ОТМЕНЕНО") + "*",
             "",
         ])
     
@@ -182,32 +187,30 @@ def format_wholesale_receipt(
         # For returns, determine if it's purchase return or wholesale return
         if use_cost:
             # System purchase return
-            receipt_type = "Чек возврата закупки"
+            receipt_type = t("wholesale.wholesale-return-receipt-title", lang_code, default="Чек возврата отгрузки")
         else:
             # System wholesale return
-            receipt_type = "Чек возврата отгрузки"
+            receipt_type = t("wholesale.purchase-return-receipt-title", lang_code, default="Чек возврата закупки")
+            
     elif use_cost:
         # System purchase
-        receipt_type = "Чек закупки"
+        receipt_type = t("wholesale.wholesale-receipt-title", lang_code, default="Чек отгрузки")
     else:
         # System wholesale
-        receipt_type = "Чек отгрузки"
-    
-    # Apply partner terminology mapping to invert for partner view
-    receipt_type = get_partner_document_type_name(receipt_type, "ru")
+        receipt_type = t("wholesale.purchase-receipt-title", lang_code, default="Чек закупки")
     
     message_parts.extend([
         f"🧾 *{receipt_type}*",
-        f"📄 *Документ №{doc_code}*",
+        f"📄 *{t('wholesale.document-number', lang_code, default='Документ №')} {doc_code}*",
         f"📅 Дата: {formatted_date}",
     ])
     
     if warehouse_name:
-        message_parts.append(f"🏢 Склад: {warehouse_name}")
+        message_parts.append(f"🏢 {t('wholesale.warehouse', lang_code, default='Склад')}: {warehouse_name}")
     
     message_parts.extend([
         "",
-        "📦 *Товары:*",
+        "📦 *" + t("wholesale.items", lang_code, default="Товары") + "*",
         ""
     ])
     
@@ -219,9 +222,9 @@ def format_wholesale_receipt(
         item = operation.get("item", {})
         # Handle both dict and other types
         if isinstance(item, dict):
-            item_name = item.get("name", "Неизвестный товар")
+            item_name = item.get("name", t("wholesale.unknown-item", lang_code, default="Неизвестный товар"))
         else:
-            item_name = str(item) if item else "Неизвестный товар"
+            item_name = str(item) if item else t("wholesale.unknown-item", lang_code, default="Неизвестный товар")
         
         quantity = float(operation.get("quantity", 0))
         
@@ -246,7 +249,7 @@ def format_wholesale_receipt(
         message_parts.append(f"   {format_number(quantity)} × {format_number(cost_or_price)} = {format_number(item_total)}")
         
         if description:
-            message_parts.append(f"   Примечание: {description}")
+            message_parts.append(f"   {t('wholesale.note', lang_code, default='Примечание')}: {description}")
         
         message_parts.append("")
     
@@ -254,8 +257,8 @@ def format_wholesale_receipt(
     # Calculate "Итого к оплате" as sum of quantity × cost/price
     message_parts.extend([
         "─" * 20,
-        f"📊 Всего товаров: {total_items}",
-        f"💵 *Итого к оплате: {format_number(total_to_pay)}*"
+        f"📊 {t('wholesale.total-items', lang_code, default='Всего товаров')}: {total_items}",
+        f"💵 *{t('wholesale.total-to-pay', lang_code, default='Итого к оплате')}: {format_number(total_to_pay)}*"
     ])
     
     return "\n".join(message_parts)

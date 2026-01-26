@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@twa-dev/sdk": "^8.0.2",
+    "lucide-react": "^0.563.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-icons": "^5.5.0"

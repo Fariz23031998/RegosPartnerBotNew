@@ -3,11 +3,15 @@ REGOS Payment operations and formatting.
 """
 import logging
 from typing import Optional, Dict, Any
+
 from core.number_format import format_number
 from regos.api import regos_async_api_request
 from config import APP_NAME
+from services.translator_service import translator_service
 
 logger = logging.getLogger(APP_NAME)
+
+t = translator_service.get
 
 
 async def get_payment_document(
@@ -75,7 +79,8 @@ async def get_payment_document(
 def format_payment_notification(
     document: Dict[str, Any],
     warehouse_name: Optional[str] = None,
-    is_cancelled: bool = False
+    is_cancelled: bool = False,
+    lang_code: str = "en"
 ) -> str:
     """
     Format a payment document as a nicely formatted notification message for Telegram.
@@ -97,7 +102,7 @@ def format_payment_notification(
     doc_date = document.get("date", "")
     amount = document.get("amount", 0)
     payment_type = document.get("type", {})
-    payment_type_name = payment_type.get("name", "Неизвестный тип") if isinstance(payment_type, dict) else "Неизвестный тип"
+    payment_type_name = payment_type.get("name", t("payment.unknown-type", lang_code, default="Неизвестный тип")) if isinstance(payment_type, dict) else t("payment.unknown-type", lang_code, default="Неизвестный тип")
     
     # Extract currency information
     currency = document.get("currency", {})
@@ -130,45 +135,45 @@ def format_payment_notification(
     # Add cancelled notice at the top if applicable
     if is_cancelled:
         message_parts.extend([
-            "❌ *ОТМЕНЕНО*",
+            "❌ *" + t("payment.cancelled", lang_code, default="ОТМЕНЕНО") + "*",
             "",
         ])
     
     # Determine payment direction text from category.positive
     if category_positive:
-        direction_text = "💸 Выплачено"
+        direction_text = t("payment.paid-out", lang_code, default="Выплачено")
         direction_emoji = "⬆️"
     else:
-        direction_text = "💰 Получено"
+        direction_text = t("payment.received", lang_code, default="Получено")
         direction_emoji = "⬇️"
     
     message_parts.extend([
         f"{direction_emoji} *{direction_text}*",
-        f"📄 *Документ №{doc_code}*",
+        f"📄 *{t('payment.document-number', lang_code, default='Документ №')} {doc_code}*",
         f"📅 Дата: {formatted_date}",
     ])
     
     if warehouse_name:
-        message_parts.append(f"🏢 Склад: {warehouse_name}")
+        message_parts.append(f"🏢 {t('payment.warehouse', lang_code, default='Склад')}: {warehouse_name}")
     
     message_parts.extend([
         "",
-        f"💳 Тип платежа: {payment_type_name}",
+        f"💳 {t('payment.payment-type', lang_code, default='Тип платежа')}: {payment_type_name}",
     ])
     
     # Add currency and amount
-    amount_line = f"💵 Сумма: {format_number(amount)}"
+    amount_line = f"💵 {t('payment.amount', lang_code, default='Сумма')}: {format_number(amount)}"
     if currency_name:
         amount_line += f" {currency_name}"
     message_parts.append(amount_line)
     
     # Add exchange rate only if it's not equal to 1
     if exchange_rate != 1.0:
-        message_parts.append(f"📊 Курс обмена: {format_number(exchange_rate, 4)}")
+        message_parts.append(f"📊 {t('payment.exchange-rate', lang_code, default='Курс обмена')}: {format_number(exchange_rate, 4)}")
     
     # Add additional payment details if available
     description = document.get("description")
     if description:
-        message_parts.append(f"📝 Примечание: {description}")
+        message_parts.append(f"📝 {t('payment.note', lang_code, default='Примечание')}: {description}")
     
     return "\n".join(message_parts)

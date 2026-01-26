@@ -11,9 +11,12 @@ from regos.api import regos_async_api_request
 from regos.document_excel import generate_document_excel
 from bot_manager import bot_manager
 from .auth import verify_telegram_user, verify_partner_telegram_id
+from services.translator_service import translator_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+t = translator_service.get
 
 
 async def _export_document_helper(
@@ -24,7 +27,8 @@ async def _export_document_helper(
     doc_endpoint: str,
     ops_endpoint: str,
     doc_type: str,
-    caption_template: str
+    caption_template: str,
+    lang_code: str = "en"
 ):
     """
     Helper function to export a document.
@@ -89,7 +93,7 @@ async def _export_document_helper(
         operations = ops_result if isinstance(ops_result, list) else [ops_result] if ops_result else []
     
     # Generate Excel file
-    excel_path = generate_document_excel(document, operations, doc_type)
+    excel_path = generate_document_excel(document, operations, doc_type, lang_code=lang_code)
     
     # Send to Telegram
     doc_code = document.get("code", document_id)
@@ -118,7 +122,8 @@ async def export_purchase_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)"),
+    lang_code: Optional[str] = Query(default="en", description="Language code (default is en, REQUIRED for sending notification using that language)")
 ):
     """
     Generate and send Excel file for purchase document to Telegram chat.
@@ -134,7 +139,8 @@ async def export_purchase_document(
             doc_endpoint="DocPurchase/Get",
             ops_endpoint="PurchaseOperation/Get",
             doc_type="purchase",
-            caption_template="📄 Закупка №{code}"
+            caption_template=t("document_exports.purchase.caption", lang_code, default="📄 Закупка №{code}"),
+            lang_code=lang_code
         )
     except HTTPException:
         raise
@@ -148,7 +154,8 @@ async def export_purchase_return_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)"),
+    lang_code: Optional[str] = Query(default="en", description="Language code (default is en, REQUIRED for sending notification using that language)")
 ):
     """
     Generate and send Excel file for purchase return document to Telegram chat.
@@ -164,7 +171,8 @@ async def export_purchase_return_document(
             doc_endpoint="DocReturnsToPartner/Get",
             ops_endpoint="ReturnsToPartnerOperation/Get",
             doc_type="purchase-return",
-            caption_template="📄 Возврат закупки №{code}"
+            caption_template=t("document_exports.purchase-return.caption", lang_code, default="📄 Возврат закупки №{code}"),
+            lang_code=lang_code
         )
     except HTTPException:
         raise
@@ -178,7 +186,8 @@ async def export_wholesale_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)"),
+    lang_code: Optional[str] = Query(default="en", description="Language code (default is en, REQUIRED for sending notification using that language)")
 ):
     """
     Generate and send Excel file for wholesale document to Telegram chat.
@@ -194,7 +203,8 @@ async def export_wholesale_document(
             doc_endpoint="DocWholeSale/Get",
             ops_endpoint="WholeSaleOperation/Get",
             doc_type="wholesale",
-            caption_template="📄 Отгрузка №{code}"
+            caption_template=t("document_exports.wholesale.caption", lang_code, default="📄 Отгрузка №{code}"),
+            lang_code=lang_code
         )
     except HTTPException:
         raise
@@ -208,7 +218,8 @@ async def export_wholesale_return_document(
     document_id: int,
     telegram_user_id: int = Query(..., description="Telegram user ID"),
     partner_id: int = Query(..., description="Partner ID"),
-    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)"),
+    lang_code: Optional[str] = Query(default="en", description="Language code (default is en, REQUIRED for sending notification using that language)")
 ):
     """
     Generate and send Excel file for wholesale return document to Telegram chat.
@@ -224,7 +235,8 @@ async def export_wholesale_return_document(
             doc_endpoint="DocWholeSaleReturn/Get",
             ops_endpoint="WholeSaleReturnOperation/Get",
             doc_type="wholesale-return",
-            caption_template="📄 Возврат отгрузки №{code}"
+            caption_template=t("document_exports.wholesale-return.caption", lang_code, default="📄 Возврат отгрузки №{code}"),
+            lang_code=lang_code
         )
     except HTTPException:
         raise

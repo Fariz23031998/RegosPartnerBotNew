@@ -13,9 +13,11 @@ from regos.document_excel import generate_partner_balance_excel
 from bot_manager import bot_manager
 from core.utils import convert_to_unix_timestamp
 from .auth import verify_telegram_user, verify_partner_telegram_id
+from services.translator_service import translator_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+t = translator_service.get
 
 
 async def _fetch_balance_data(
@@ -158,12 +160,13 @@ async def export_partner_balance(
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     firm_ids: Optional[str] = Query(None, description="Comma-separated firm IDs"),
     currency_ids: Optional[str] = Query(None, description="Comma-separated currency IDs"),
-    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)")
+    bot_name: Optional[str] = Query(None, description="Bot name (REQUIRED for security)"),
+    lang_code: Optional[str] = Query(default="en", description="Language code (default is en, REQUIRED for sending notification using that language)")
 ):
     """
     Generate and send Excel file for partner balance to Telegram chat.
-    
     SECURITY: bot_name is REQUIRED. Each bot must only access its own balance data.
+    lang_code is REQUIRED for sending notification using that language.
     """
     try:
         # SECURITY: bot_name is REQUIRED
@@ -215,10 +218,10 @@ async def export_partner_balance(
             raise HTTPException(status_code=404, detail="No balance data found for selected filters")
         
         # Generate Excel file
-        excel_path = generate_partner_balance_excel(all_balance_entries)
+        excel_path = generate_partner_balance_excel(all_balance_entries, lang_code=lang_code)
         
         # Send to Telegram
-        caption = f"📊 Баланс партнера (ID: {partner_id})"
+        caption = f"{t('partner_balance.balance', default='📊 Баланс партнера')} (ID: {partner_id})"
         result = await bot_manager.send_document(
             telegram_bot_token,
             telegram_user_id,

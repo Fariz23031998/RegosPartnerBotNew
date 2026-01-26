@@ -1,7 +1,5 @@
 import { indexedDBService } from "./indexedDB";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://3b71d0de96e1.ngrok-free.app";
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://regos-partner-bot.in.ngrok.io'
 
 export type SupportedLanguage = "uz" | "ru" | "en";
 
@@ -19,137 +17,82 @@ class LanguageService {
   private translations: TranslationDictionary = {};
   private supportedLanguages: SupportedLanguage[] = ["uz", "ru", "en"];
 
-  private normalizeLanguageCode(code: unknown): SupportedLanguage | null {
-    if (typeof code !== "string") return null;
+  /**
+   * Detect browser language and return supported language code
+   */
+  detectBrowserLanguage(): SupportedLanguage {
+    const tg = (window as any).Telegram?.WebApp
+    const tgLang = tg?.initDataUnsafe?.user?.language_code;
+    const browserLang = navigator.language || (navigator as any).userLanguage;
+    console.log("tgLang", tgLang);
+    console.log("browserLang", browserLang);
+    const langCode = tgLang || browserLang.split("-")[0].toLowerCase();
 
-    const trimmed = code.trim();
-    if (!trimmed) return null;
-
-    const langCode = trimmed.split(/[-_]/)[0].toLowerCase();
     if (this.supportedLanguages.includes(langCode as SupportedLanguage)) {
       return langCode as SupportedLanguage;
     }
 
-    return null;
-  }
-
-  private extractLanguageFromInitData(initData: unknown): SupportedLanguage | null {
-    if (typeof initData !== "string") return null;
-    if (!initData.trim()) return null;
-
-    try {
-      const params = new URLSearchParams(initData);
-      const userStr = params.get("user");
-      if (!userStr) return null;
-
-      const user = JSON.parse(userStr);
-      return this.normalizeLanguageCode(user?.language_code);
-    } catch {
-      return null;
-    }
-  }
-
-  private tryGetTelegramLanguage(): SupportedLanguage | null {
-    const tg = (window as any).Telegram?.WebApp;
-
-    const fromUnsafe = this.normalizeLanguageCode(tg?.initDataUnsafe?.user?.language_code);
-    if (fromUnsafe) return fromUnsafe;
-
-    const fromInitData = this.extractLanguageFromInitData(tg?.initData);
-    if (fromInitData) return fromInitData;
-
-    return null;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return "en"; // Default to English
   }
 
   /**
-   * Always detect language from Telegram Mini App
-   */
-  detectTelegramLanguage(): SupportedLanguage {
-    return this.tryGetTelegramLanguage() ?? "en";
-  }
-
-  /**
-   * Telegram clients (especially mobile) can expose WebApp data slightly later
-   * than the first render. This waits briefly for Telegram-provided language.
-   */
-  async detectTelegramLanguageWithRetry(
-    timeoutMs: number = 800,
-    pollIntervalMs: number = 50
-  ): Promise<SupportedLanguage> {
-    const start = Date.now();
-
-    while (Date.now() - start < timeoutMs) {
-      const lang = this.tryGetTelegramLanguage();
-      if (lang) return lang;
-
-      // If Telegram WebApp is not present at all, don't delay startup.
-      if (!(window as any).Telegram?.WebApp) {
-        return "en";
-      }
-
-      await this.sleep(pollIntervalMs);
-    }
-
-    return "en";
-  }
-
-  /**
-   * Initialize language system
-   * Language is ALWAYS taken from Telegram
+   * Initialize language system on app load
    */
   async initialize(): Promise<SupportedLanguage> {
-    const telegramLang = await this.detectTelegramLanguageWithRetry();
-    this.currentLanguage = telegramLang;
+    // Detect browser language
+    const detectedLang = this.detectBrowserLanguage();
+    
+    // Get stored language preference or use detected
+    const storedLang = await indexedDBService.getSetting("current_language");
+    const langToUse: SupportedLanguage = storedLang || detectedLang;
 
-    await this.loadLanguage(telegramLang);
+    // Load language
+    await this.loadLanguage(langToUse);
 
-    return telegramLang;
+    return langToUse;
   }
 
   /**
-   * Load translations (cache-aware)
-   * No language persistence here
+   * Load language from IndexedDB or backend
    */
   async loadLanguage(langCode: SupportedLanguage): Promise<void> {
     try {
+      // Check if language needs update
       const needsUpdate = await this.checkLanguageVersion(langCode);
 
       if (needsUpdate) {
+        // Fetch from backend
         await this.fetchLanguageFromBackend(langCode);
-        this.currentLanguage = langCode;
       }
 
+      // Load from IndexedDB
       const cachedTranslations = await indexedDBService.getLanguage(langCode);
-
+      
       if (cachedTranslations) {
         this.translations = cachedTranslations;
+        this.currentLanguage = langCode;
+        await indexedDBService.saveSetting("current_language", langCode);
       } else {
         await this.fetchLanguageFromBackend(langCode);
       }
     } catch (error) {
       console.error("Error loading language:", error);
       this.translations = this.getFallbackTranslations();
+      this.currentLanguage = "en";
     }
   }
 
   /**
-   * Check backend language version
+   * Check if language version needs update
    */
   async checkLanguageVersion(langCode: SupportedLanguage): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/lang/${langCode}/version`,
-        {
-          headers: {
-            "ngrok-skip-browser-warning": "true",
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/api/lang/${langCode}/version`, {
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+      });
 
       if (!response.ok) return false;
 
@@ -164,64 +107,69 @@ class LanguageService {
   }
 
   /**
-   * Fetch translations from backend
+   * Fetch language data from backend
    */
   async fetchLanguageFromBackend(langCode: SupportedLanguage): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/lang/${langCode}`, {
-      headers: {
-        "ngrok-skip-browser-warning": "true",
-        "Content-Type": "application/json",
-      },
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lang/${langCode}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        }
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch language data");
+      if (!response.ok) throw new Error("Failed to fetch language data");
+
+      const data = await response.json();
+      
+      // Save to IndexedDB
+      await indexedDBService.saveLanguage(langCode, data.version, data.translations);
+      
+      // Update current translations
+      this.translations = data.translations;
+      this.currentLanguage = langCode;
+      await indexedDBService.saveSetting("current_language", langCode);
+    } catch (error) {
+      console.error("Error fetching language from backend:", error);
+      throw error;
     }
-
-    const data = await response.json();
-
-    await indexedDBService.saveLanguage(
-      langCode,
-      data.version,
-      data.translations
-    );
-
-    this.translations = data.translations;
   }
 
   /**
-   * Translate key
+   * Get translation for a key
    */
   t(key: string, fallback?: string): string {
     return this.translations[key] || fallback || key;
   }
 
   /**
-   * Current language (Telegram-driven)
+   * Get current language
    */
   getCurrentLanguage(): SupportedLanguage {
     return this.currentLanguage;
   }
 
+  /**
+   * Get supported languages
+   */
   getSupportedLanguages(): SupportedLanguage[] {
     return this.supportedLanguages;
   }
 
   /**
-   * Language change is ignored (Telegram controls it)
-   * Optional: throw or log warning
+   * Change language
    */
-  async changeLanguage(_: SupportedLanguage): Promise<void> {
-    console.warn(
-      "Language change ignored. Language is controlled by Telegram settings."
-    );
+  async changeLanguage(langCode: SupportedLanguage): Promise<void> {
+    await this.loadLanguage(langCode);
   }
 
   /**
-   * Fallback translations
+   * Fallback translations (English)
    */
   private getFallbackTranslations(): TranslationDictionary {
     return {
+      // Common
       "common.loading": "Loading...",
       "common.save": "Save",
       "common.cancel": "Cancel",
@@ -234,11 +182,24 @@ class LanguageService {
       "common.create": "Create",
       "common.error": "Error",
       "common.success": "Success",
+      
+      // Header
+      "header.main": "Main",
+      "header.logout": "Logout",
+      "header.profile": "Profile",
+      "header.changePassword": "Change Password",
+      "header.currentPlan": "Current Plan",
+      "header.plans": "Plans",
+      "header.payments": "Payments",
+      "header.about": "About",
+      "header.addToken": "Add Regos Integration Token",
+      
+      // Add more as needed...
     };
   }
 
   /**
-   * Clear cached translations only
+   * Clear all language cache
    */
   async clearCache(): Promise<void> {
     await indexedDBService.clearLanguageData();

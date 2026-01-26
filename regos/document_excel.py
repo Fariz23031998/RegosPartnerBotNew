@@ -10,15 +10,19 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from config import APP_NAME
 from core.partner_terminology import get_inverted_debit_credit_labels, get_partner_document_type_name
+from services.translator_service import translator_service
 
 logger = logging.getLogger(APP_NAME)
+
+t = translator_service.get
 
 
 def generate_document_excel(
     document: Dict[str, Any],
     operations: List[Dict[str, Any]],
     document_type: str,
-    output_dir: str = "exports"
+    output_dir: str = "exports",
+    lang_code: str = "en"
 ) -> str:
     """
     Generate Excel file for a document (purchase, wholesale, or their returns).
@@ -41,12 +45,12 @@ def generate_document_excel(
     
     # Determine document type label (inverted for partner view)
     type_labels = {
-        "purchase": "Отгрузка",  # System purchase -> Partner sees shipment
-        "purchase-return": "Возврат отгрузки",  # System purchase return -> Partner sees shipment return
-        "wholesale": "Закупка",  # System wholesale -> Partner sees purchase
-        "wholesale-return": "Возврат закупки"  # System wholesale return -> Partner sees purchase return
+        "purchase": t("document_excel.shipment", lang_code, default="Отгрузка"),  # System purchase -> Partner sees shipment
+        "purchase-return": t("document_excel.shipment-return", lang_code, default="Возврат отгрузки"),  # System purchase return -> Partner sees shipment return
+        "wholesale": t("document_excel.purchase", lang_code, default="Закупка"),  # System wholesale -> Partner sees purchase
+        "wholesale-return": t("document_excel.purchase-return", lang_code, default="Возврат закупки")  # System wholesale return -> Partner sees purchase return
     }
-    doc_type_label = type_labels.get(document_type, "Документ")
+    doc_type_label = type_labels.get(document_type, t("document_excel.document", lang_code, default="Документ"))
     
     # Determine if we use cost or price
     use_cost = document_type in ["purchase", "purchase-return"]
@@ -90,8 +94,8 @@ def generate_document_excel(
             formatted_date = str(doc_date)
     
     info_rows = [
-        ("Номер документа:", doc_code),
-        ("Дата:", formatted_date),
+        (t("document_excel.document-number", lang_code, default="Номер документа:"), doc_code),
+        (t("document_excel.date", lang_code, default="Дата:"), formatted_date),
     ]
     
     # Add warehouse if available
@@ -99,7 +103,7 @@ def generate_document_excel(
     if stock:
         stock_name = stock.get("name", "") if isinstance(stock, dict) else str(stock)
         if stock_name:
-            info_rows.append(("Склад:", stock_name))
+            info_rows.append((t("document_excel.warehouse", lang_code, default="Склад:"), stock_name))
     
     for label, value in info_rows:
         ws.cell(row=row, column=1).value = label
@@ -110,7 +114,10 @@ def generate_document_excel(
     row += 1
     
     # Operations header
-    headers = ["№", "Товар", "Код", "Штрихкод", "Количество", "Цена/Стоимость", "Сумма"]
+    headers = [t("document_excel.number", lang_code, default="№"), 
+        t("document_excel.item", lang_code, default="Товар"), t("document_excel.code", lang_code, default="Код"), 
+        t("document_excel.barcode", lang_code, default="Штрихкод"), t("document_excel.quantity", lang_code, default="Количество"), 
+        t("document_excel.price", lang_code, default="Цена/Стоимость"), t("document_excel.total", lang_code, default="Сумма")]
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=row, column=col)
         cell.value = header
@@ -128,11 +135,11 @@ def generate_document_excel(
     for idx, operation in enumerate(operations, 1):
         item = operation.get("item", {})
         if isinstance(item, dict):
-            item_name = item.get("name", "Неизвестный товар")
+            item_name = item.get("name", t("document_excel.unknown-item", lang_code, default="Неизвестный товар"))
             item_code = item.get("code", "")
             item_barcode = item.get("base_barcode", "")
         else:
-            item_name = str(item) if item else "Неизвестный товар"
+            item_name = str(item) if item else t("document_excel.unknown-item", lang_code, default="Неизвестный товар")
             item_code = ""
             item_barcode = ""
         
@@ -180,7 +187,7 @@ def generate_document_excel(
     row += 1
     ws.merge_cells(f'A{row}:D{row}')
     cell = ws[f'A{row}']
-    cell.value = "Всего товаров:"
+    cell.value = t("document_excel.total-items", lang_code, default="Всего товаров:")
     cell.font = bold_font
     cell.alignment = Alignment(horizontal='right')
     ws.cell(row=row, column=5).value = total_items
@@ -191,7 +198,7 @@ def generate_document_excel(
     row += 1
     ws.merge_cells(f'A{row}:D{row}')
     cell = ws[f'A{row}']
-    cell.value = "Итого к оплате:"
+    cell.value = t("document_excel.total-to-pay", lang_code, default="Итого к оплате:")
     cell.font = bold_font
     cell.font = Font(bold=True, size=12, color="0088CC")
     cell.alignment = Alignment(horizontal='right')
@@ -231,7 +238,8 @@ def generate_document_excel(
 
 def generate_partner_balance_excel(
     balance_entries: List[Dict[str, Any]],
-    output_dir: str = "exports"
+    output_dir: str = "exports",
+    lang_code: str = "en"
 ) -> str:
     """
     Generate Excel file for partner balance with totals.
@@ -291,7 +299,7 @@ def generate_partner_balance_excel(
         # Currency header
         ws.merge_cells(f'A{row}:H{row}')
         cell = ws[f'A{row}']
-        cell.value = f"💱 Валюта: {currency_name}"
+        cell.value = f"💱 {t('document_excel.currency', lang_code, default='Валюта')}: {currency_name}"
         cell.font = title_font
         cell.alignment = Alignment(horizontal='center')
         ws.row_dimensions[row].height = 25
@@ -306,14 +314,18 @@ def generate_partner_balance_excel(
             # Firm header
             ws.merge_cells(f'A{row}:H{row}')
             cell = ws[f'A{row}']
-            cell.value = f"🏢 Предприятие: {firm_name}"
+            cell.value = f"🏢 {t('document_excel.firm', lang_code, default='Предприятие')}: {firm_name}"
             cell.font = Font(bold=True, size=12)
             cell.alignment = Alignment(horizontal='left')
             row += 1
             
             # Column headers (inverted for partner view)
-            partner_credit_label, partner_debit_label = get_inverted_debit_credit_labels("ru")
-            headers = ["Дата", "Документ", "Тип документа", "Начальный остаток", partner_debit_label, partner_credit_label, "Остаток", "Курс"]
+            headers = [t("document_excel.date", lang_code, default="Дата"), 
+                t("document_excel.document", lang_code, default="Документ"), t("document_excel.document-type", lang_code, default="Тип документа"), 
+                t("document_excel.start-balance", lang_code, default="Начальный остаток"), t("document_excel.debit", lang_code, default="Дебет"), 
+                t("document_excel.credit", lang_code, default="Кредит"), 
+                t("document_excel.remainder", lang_code, default="Остаток"), t("document_excel.exchange-rate", lang_code, default="Курс")]
+
             for col, header in enumerate(headers, start=1):
                 cell = ws.cell(row=row, column=col)
                 cell.value = header
@@ -337,9 +349,9 @@ def generate_partner_balance_excel(
                 entry_date = entry.get("date", 0)
                 doc_code = entry.get("document_code", "N/A")
                 doc_type = entry.get("document_type", {})
-                doc_type_name_raw = doc_type.get("name", "Неизвестно") if isinstance(doc_type, dict) else "Неизвестно"
-                # Convert to partner perspective
-                doc_type_name = get_partner_document_type_name(doc_type_name_raw, "ru")
+                doc_type_name_raw = doc_type.get("name", t("document_excel.unknown", lang_code, default="Неизвестно")) if isinstance(doc_type, dict) else t("document_excel.unknown", lang_code, default="Неизвестно")
+                doc_type_id = doc_type.get("id", 0)
+                doc_type_name = t(f"partner-balance.document-type.{doc_type_id}", lang_code, default=doc_type_name_raw)
                 start_amount = float(entry.get("start_amount", 0))
                 debit = float(entry.get("debit", 0))
                 credit = float(entry.get("credit", 0))
@@ -393,7 +405,7 @@ def generate_partner_balance_excel(
             row += 1
             ws.merge_cells(f'A{row}:C{row}')
             cell = ws[f'A{row}']
-            cell.value = f"Итого ({firm_name}):"
+            cell.value = f"{t('document_excel.total', lang_code, default='Итого')} ({firm_name}):"
             cell.font = bold_font
             cell.border = border
             cell.alignment = Alignment(horizontal='right')
@@ -454,7 +466,7 @@ def generate_partner_balance_excel(
         row += 1
         ws.merge_cells(f'A{row}:C{row}')
         cell = ws[f'A{row}']
-        cell.value = f"ВСЕГО ({currency_name}):"
+        cell.value = f"{t('document_excel.total', lang_code, default='ВСЕГО')} ({currency_name}):"
         cell.font = Font(bold=True, size=13, color="0000FF")
         cell.border = border
         cell.alignment = Alignment(horizontal='right')

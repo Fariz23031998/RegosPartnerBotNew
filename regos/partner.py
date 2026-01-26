@@ -141,7 +141,8 @@ async def update_partner_telegram_id(
     regos_integration_token: str,
     partner_id: int,
     telegram_chat_id: str,
-    existing_partner_data: Dict[str, Any]
+    existing_partner_data: Dict[str, Any],
+    lang_code: str = "en"
 ) -> bool:
     """
     Update partner's oked field with Telegram chat ID using Partner/Edit endpoint.
@@ -171,6 +172,7 @@ async def update_partner_telegram_id(
         edit_data = {
             "id": partner_id,
             "oked": str(telegram_chat_id),  # Store Telegram chat ID in oked field (as per requirement)
+            "rs": lang_code
         }
    
         logger.info(f"Updating partner {partner_id} ({existing_partner_data.get('name')}) with Telegram chat ID: {telegram_chat_id}")
@@ -255,7 +257,8 @@ async def register_partner(
     name: str,
     full_name: str,
     phones: str,
-    telegram_user_id: str
+    telegram_user_id: str,
+    lang_code: str = "en"
 ) -> Optional[Dict[str, Any]]:
     """
     Register a new partner in REGOS using Partner/Add endpoint.
@@ -282,7 +285,8 @@ async def register_partner(
             "name": name,
             "fullName": full_name,
             "phones": phones,
-            "oked": telegram_user_id  # Store Telegram user ID in oked field
+            "oked": telegram_user_id,  # Store Telegram user ID in oked field
+            "rs": lang_code
         }
         
         logger.info(f"Registering new partner: {name} ({full_name})")

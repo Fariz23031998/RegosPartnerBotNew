@@ -5,8 +5,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from core.number_format import format_number
-from core.conf import translator_service
-
+from services.translator_service import translator_service
 
 def format_partner_balance_excel(data: list, lang: str = "ru", translator=translator_service,
                                  show_firm: bool = True, newest_first: bool = False,

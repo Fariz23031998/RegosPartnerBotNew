@@ -55,7 +55,6 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
   const [isLoading, setIsLoading] = useState(false)
   const { t } = useLanguage()
   // Get inverted labels for partner view
-  const { debitLabel, creditLabel } = getInvertedDebitCreditLabels("ru")
   const [isLoadingBalance, setIsLoadingBalance] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -259,7 +258,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
             onClick={handleExport}
             disabled={isExporting}
           >
-            {isExporting ? '⏳ Отправка...' : '📥 Скачать Excel'}
+            {isExporting ? t('partner-balance.export.loading', '⏳ Отправка...') : t('partner-balance.export.download', '📥 Скачать Excel')}
           </button>
         )}
       </div>
@@ -323,7 +322,8 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
                 <div className="balance-entry-details">
                   <div className="balance-detail-row">
                     <span className="balance-label">{t("partner-balance.document-type", "Тип документа:")}</span>
-                    <span className="balance-value">{getPartnerDocumentTypeName(entry.document_type.name, "ru")}</span>
+                    {/* <span className="balance-value">{getPartnerDocumentTypeName(entry.document_type.name, "ru")}</span> */}
+                    <span className="balance-value">{t(`partner-balance.document-type.${entry.document_type.id}`, entry.document_type.name)}</span>
                   </div>
                   <div className="balance-detail-row">
                     <span className="balance-label">{t("partner-balance.firm", "Предприятие:")}</span>
@@ -342,7 +342,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
                   {/* Inverted for partner view: system credit -> partner debit */}
                   {entry.credit !== 0 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">{creditLabel}:</span>
+                      <span className="balance-label">{t("partner-balance.debit", "Дебет")}:</span>
                       <span className="balance-value debit">
                         {formatNumber(entry.credit)}
                       </span>
@@ -351,7 +351,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
                   {/* Inverted for partner view: system debit -> partner credit */}
                   {entry.debit !== 0 && (
                     <div className="balance-detail-row">
-                      <span className="balance-label">{debitLabel}:</span>
+                      <span className="balance-label">{t("partner-balance.credit", "Кредит")}:</span>
                       <span className="balance-value credit">
                         {formatNumber(-entry.debit)}
                       </span>
