@@ -20,7 +20,11 @@ async def create_bot_schedule(
     schedule: BotScheduleCreate,
     current_user: dict = Depends(verify_user)
 ):
-    """Create new bot schedule - users can only create schedules for their own bots"""
+    """
+    Create new bot schedule - users can only create schedules for their own bots.
+    Multiple schedules per bot are supported - you can create multiple schedules
+    for the same bot with different times, options, or schedule types.
+    """
     try:
         # Check ownership
         if not await check_bot_ownership(schedule.bot_id, current_user):
@@ -68,7 +72,8 @@ async def create_bot_schedule(
             except:
                 raise HTTPException(status_code=400, detail="Time must be in HH:MM format")
             
-            # Create schedule
+            # Create schedule (multiple schedules per bot are allowed)
+            # Each schedule will have a unique ID and will be scheduled independently
             bot_schedule = await schedule_repo.create(
                 bot_id=schedule.bot_id,
                 schedule_type=schedule.schedule_type,

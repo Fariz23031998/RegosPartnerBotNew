@@ -6,6 +6,7 @@ import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './DocumentDetail.css'
 import { useLanguage } from '../contexts/LanguageContext'
+import { languageService } from '../utils/language'
 
 interface DocumentDetailProps {
   documentId: number
@@ -170,9 +171,11 @@ function DocumentDetail({
       }
       
       const url = new URL(endpoint, window.location.origin)
+      const currentLanguage = languageService.getCurrentLanguage()
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
       url.searchParams.set('bot_name', botName) // REQUIRED
+      url.searchParams.set('lang_code', currentLanguage)
       
       const response = await apiFetch(url.pathname + url.search, {
         method: 'POST'

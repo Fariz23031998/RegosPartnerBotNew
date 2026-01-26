@@ -403,6 +403,9 @@
         "document_exports.purchase-return.caption": "📄 Xarid qaytarilishi №{code}",
         "document_exports.wholesale-return.caption": "📄 Ulgurji qaytarish №{code}",
         "document_excel.firm": "Korxona",
-        "document_excel.currency": "Valyuta"
+        "document_excel.currency": "Valyuta",
+        "partner_balance.notification-title": "⚠️ Balans bo‘yicha bildirishnoma",
+        "partner_balance.partner-id": "Hamkor ID",
+        "partner_balance.negative-balance": "Manfiy balans:"
     }
 }

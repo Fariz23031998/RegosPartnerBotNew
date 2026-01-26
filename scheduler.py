@@ -5,8 +5,9 @@ Uses APScheduler for robust scheduling.
 import asyncio
 import logging
 import json
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from datetime import datetime, time
+from typing import List, Optional, Dict
+
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -62,7 +63,12 @@ class ScheduleExecutor:
         logger.info("Scheduler stopped")
     
     async def _load_schedules(self):
-        """Load all enabled schedules from database and add them to scheduler"""
+        """
+        Load all enabled schedules from database and add them to scheduler.
+        Multiple schedules per bot are supported - each schedule gets a unique job ID
+        based on its schedule ID, allowing multiple schedules for the same bot to run
+        independently at different times or with different configurations.
+        """
         try:
             db = await get_db()
             async with db.async_session_maker() as session:
@@ -82,7 +88,11 @@ class ScheduleExecutor:
             logger.error(f"Error loading schedules: {e}", exc_info=True)
     
     async def _add_schedule_job(self, schedule):
-        """Add a schedule as a job to APScheduler"""
+        """
+        Add a schedule as a job to APScheduler.
+        Each schedule gets a unique job ID based on its database ID, allowing
+        multiple schedules per bot to coexist and run independently.
+        """
         job_id = f"schedule_{schedule.id}"
         
         # Remove existing job if it exists
@@ -240,12 +250,6 @@ class ScheduleExecutor:
                 logger.warning(f"No firms or currencies found for bot {schedule.bot_id}")
                 return
             
-            # Calculate date range (last 30 days by default)
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=30)
-            start_date_str = start_date.strftime("%Y-%m-%d")
-            end_date_str = end_date.strftime("%Y-%m-%d")
-            
             # Send balance to each partner
             for partner_id, telegram_chat_id, lang_code in partners_with_telegram:
                 try:
@@ -256,8 +260,6 @@ class ScheduleExecutor:
                         telegram_chat_id,
                         firms,
                         currencies,
-                        start_date_str,
-                        end_date_str,
                         lang_code=lang_code
                     )
                     # Small delay between sends to avoid rate limiting
@@ -375,8 +377,6 @@ class ScheduleExecutor:
         telegram_chat_id: int,
         firms: List[Dict],
         currencies: List[Dict],
-        start_date: str,
-        end_date: str,
         lang_code: str = "en"
     ):
         """Send partner balance Excel file to Telegram chat with text message if balance is negative"""
@@ -391,7 +391,9 @@ class ScheduleExecutor:
             
             # Fetch partner balance for each combination
             balance_tasks = []
-            
+            today_local = datetime.now().date()
+            end_of_day_local = datetime.combine(today_local, time.max)
+            unix_time_eod = end_of_day_local.timestamp()
             for firm_id in firm_ids:
                 for currency_id in currency_ids:
                     balance_request = {
@@ -399,11 +401,9 @@ class ScheduleExecutor:
                         "firm_id": firm_id,
                         "currency_id": currency_id
                     }
-                    
-                    start_date_with_time = f"{start_date} 00:00:00"
-                    end_date_with_time = f"{end_date} 23:59:59"
-                    balance_request["start_date"] = convert_to_unix_timestamp(start_date_with_time, "%Y-%m-%d %H:%M:%S")
-                    balance_request["end_date"] = convert_to_unix_timestamp(end_date_with_time, "%Y-%m-%d %H:%M:%S")
+
+                    balance_request["start_date"] = 946684800
+                    balance_request["end_date"] = unix_time_eod
                     
                     balance_tasks.append(
                         regos_async_api_request(
@@ -494,11 +494,11 @@ class ScheduleExecutor:
             
             # Generate text message with balance summary
             message_lines = [
-                "⚠️ Уведомление о балансе",
+                t("partner_balance.notification-title", lang_code, default="⚠️ Уведомление о балансе"),
                 "",
-                f"Партнер ID: {partner_id}",
+                f"{t('partner_balance.partner-id', lang_code, default='Партнер ID')}: {partner_id}",
                 "",
-                "Отрицательный баланс:",
+                t("partner_balance.negative-balance", lang_code, default="Отрицательный баланс:"),
                 ""
             ]
             
@@ -513,35 +513,46 @@ class ScheduleExecutor:
             text_message = "\n".join(message_lines)
             
             # Send text message first
-            await bot_manager.send_message(
+            message_result = await bot_manager.send_message(
                 telegram_token,
                 telegram_chat_id,
                 text_message
             )
             
             # Generate Excel file
-            excel_path = generate_partner_balance_excel(all_balance_entries, lang_code=lang_code)
-            
-            # Send Excel file to Telegram
-            caption = f"{t('partner_balance.balance', lang_code, default='📊 Баланс партнера')} (ID: {partner_id})"
-            result = await bot_manager.send_document(
-                telegram_token,
-                telegram_chat_id,
-                excel_path,
-                caption
-            )
-            
-            # Clean up file after sending
+            excel_path = None
             try:
-                import os
-                os.remove(excel_path)
-            except Exception as e:
-                logger.warning(f"Failed to delete temporary Excel file: {e}")
-            
-            if result:
-                logger.info(f"Successfully sent balance to partner {partner_id} (Telegram ID: {telegram_chat_id})")
-            else:
-                logger.warning(f"Failed to send balance to partner {partner_id} (Telegram ID: {telegram_chat_id})")
+                excel_path = generate_partner_balance_excel(all_balance_entries, lang_code=lang_code)
+                
+                # Send Excel file to Telegram
+                caption = f"{t('partner_balance.balance', lang_code, default='📊 Баланс партнера')} (ID: {partner_id})"
+                document_result = await bot_manager.send_document(
+                    telegram_token,
+                    telegram_chat_id,
+                    excel_path,
+                    caption
+                )
+                
+                # Check results
+                message_success = message_result is not None
+                document_success = document_result is not None
+                
+                if message_success and document_success:
+                    logger.info(f"Successfully sent balance to partner {partner_id} (Telegram ID: {telegram_chat_id})")
+                elif message_success and not document_success:
+                    logger.warning(f"Failed to send document to partner {partner_id} (Telegram ID: {telegram_chat_id}) - message was sent successfully")
+                elif not message_success and document_success:
+                    logger.warning(f"Failed to send message to partner {partner_id} (Telegram ID: {telegram_chat_id}) - document was sent successfully")
+                else:
+                    logger.warning(f"Failed to send balance to partner {partner_id} (Telegram ID: {telegram_chat_id}) - both message and document failed")
+            finally:
+                # Clean up file after sending (or if error occurred)
+                if excel_path:
+                    try:
+                        import os
+                        os.remove(excel_path)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete temporary Excel file: {e}")
         
         except Exception as e:
             logger.error(f"Error sending partner balance to {partner_id}: {e}", exc_info=True)

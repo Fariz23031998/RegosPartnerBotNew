@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import Loading from './Loading'
 import ErrorMessage from './ErrorMessage'
-import { getInvertedDebitCreditLabels, getPartnerDocumentTypeName } from '../utils/partnerTerminology'
 import { apiFetch } from '../utils/api'
 import { formatNumber } from '../utils/formatNumber'
 import './PartnerBalance.css'
 import { useLanguage } from '../contexts/LanguageContext'
+import { languageService } from '../utils/language'
 
 interface PartnerBalanceProps {
   telegramUserId: number
@@ -209,6 +209,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
       }
       
       const url = new URL('/telegram-webapp/partner-balance/export', window.location.origin)
+      const currentLanguage = languageService.getCurrentLanguage()
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
       url.searchParams.set('start_date', startDate)
@@ -216,6 +217,7 @@ function PartnerBalance({ telegramUserId, partnerId, startDate, endDate, botName
       url.searchParams.set('firm_ids', firmIds)
       url.searchParams.set('currency_ids', currencyIds)
       url.searchParams.set('bot_name', botName) // REQUIRED
+      url.searchParams.set('lang_code', currentLanguage)
       
       const response = await apiFetch(url.pathname + url.search, {
         method: 'POST'

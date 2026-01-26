@@ -403,6 +403,9 @@
         "document_exports.purchase-return.caption": "📄 Возврат закупки №{code}",
         "document_exports.wholesale-return.caption": "📄 Возврат отгрузки №{code}",
         "document_excel.firm": "Предприятие",
-        "document_excel.currency": "Валюта"
+        "document_excel.currency": "Валюта",
+        "partner_balance.notification-title": "⚠️ Уведомление о балансе",
+        "partner_balance.partner-id": "Партнер ID",
+        "partner_balance.negative-balance": "Отрицательный баланс:"
     }
 }

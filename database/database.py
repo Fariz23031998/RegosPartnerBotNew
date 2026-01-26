@@ -47,10 +47,10 @@ class Database:
             await conn.run_sync(Base.metadata.create_all)
         
         # Run migrations for existing tables
-        await self._migrate_subscription_fields()
-        await self._migrate_unique_constraints()
-        await self._migrate_show_online_store()
-        await self._migrate_registration_fields()
+        # await self._migrate_subscription_fields()
+        # await self._migrate_unique_constraints()
+        # await self._migrate_show_online_store()
+        # await self._migrate_registration_fields()
     
     async def _migrate_subscription_fields(self):
         """Add subscription fields to existing bots table if they don't exist"""

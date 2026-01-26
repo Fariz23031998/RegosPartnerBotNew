@@ -220,7 +220,7 @@ function BotScheduleManagement({ onUpdate }: BotScheduleManagementProps) {
   }
 
   const getAvailableBots = () => {
-    return bots.filter(bot => !schedules.some(s => s.bot_id === bot.bot_id && s.schedule_type === formData.schedule_type && (!editingSchedule || s.id !== editingSchedule.id)))
+    return bots
   }
 
   if (loading) {

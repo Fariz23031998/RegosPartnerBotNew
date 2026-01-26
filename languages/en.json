@@ -403,6 +403,9 @@
         "document_exports.purchase-return.caption": "📄 Purchase Return #{code}",
         "document_exports.wholesale-return.caption": "📄 Wholesale Return #{code}",
         "document_excel.firm": "Company",
-        "document_excel.currency": "Currency"
+        "document_excel.currency": "Currency",
+        "partner_balance.notification-title": "⚠️ Balance notification",
+        "partner_balance.partner-id": "Partner ID",
+        "partner_balance.negative-balance": "Negative balance:"
     }
 }

@@ -1,5 +1,5 @@
 import { indexedDBService } from "./indexedDB";
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://regos-partner-bot.in.ngrok.io'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://regos-partner-bot.eu.ngrok.io'
 
 export type SupportedLanguage = "uz" | "ru" | "en";
 

@@ -91,7 +91,8 @@ else:
         "http://localhost:5175",   # Telegram web app port
         "https://no-thing.uz",     # Production domain
         "https://www.no-thing.uz", # Production domain with www
-        "https://mini-bot.in.ngrok.io"
+        "https://mini-bot.in.ngrok.io",
+        "https://mini-bot.eu.ngrok.io"
     ]
 
 # Log CORS configuration for debugging
