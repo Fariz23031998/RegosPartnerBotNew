@@ -509,7 +509,7 @@ function Shop({ telegramUserId, partnerId, botName, currencyName, onBack }: Shop
                     <div className="order-header">
                       <div className="order-code">{t("shop.order-code", "Заказ №")}{order.code || order.id}</div>
                       <div className={`order-status ${order.performed ? 'performed' : 'pending'}`}>
-                        {getOrderStatus(order)}
+                        {t(getOrderStatus(order), "Не известный статус")}
                       </div>
                     </div>
                     <div className="order-date">

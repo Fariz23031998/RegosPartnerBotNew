@@ -1,9 +1,6 @@
 /**
  * Utility functions for order formatting and calculations
  */
-import { useLanguage } from '../contexts/LanguageContext'
-
-const { t } = useLanguage()
 
 export function formatDate(timestamp: number | string): string {
   const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp * 1000)
@@ -30,10 +27,10 @@ export function calculateOrderTotal(order: any): number {
 
 export function getOrderStatus(order: any): string {
   if (order.performed) {
-    return t('order-detail.info.status.performed', 'Выполнен')
+    return 'order-detail.info.status.performed'
   }
   if (order.booked) {
-    return t('order-detail.info.status.booked', 'Забронирован')
+    return 'order-detail.info.status.booked'
   }
-  return t('order-detail.info.status.new', 'Новый')
+  return 'order-detail.info.status.new'
 }
