@@ -581,13 +581,15 @@ class BotManager:
         
         if registration_result and registration_result.get("ok"):
             new_partner_id = registration_result.get("new_id")
-            return await self.send_message(
-                token,
-                chat_id,
-                t("bot_manager.registration-success", lang_code, default=f"✅ Регистрация успешна!\n\n"
+            message_text = t("bot_manager.registration-success", lang_code, default=f"✅ Регистрация успешна!\n\n"
                 f"Вы зарегистрированы как новый партнер.\n"
                 f"ID партнера: {new_partner_id}\n"
                 f"Теперь вы будете получать уведомления через этого бота.")
+            logger.info(f"Registration success message: {message_text}")
+            return await self.send_message(
+                token,
+                chat_id,
+                message_text
             )
         else:
             return await self.send_message(
