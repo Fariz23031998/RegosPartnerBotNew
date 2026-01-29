@@ -202,7 +202,7 @@ def format_wholesale_receipt(
     message_parts.extend([
         f"🧾 *{receipt_type}*",
         f"📄 *{t('wholesale.document-number', lang_code, default='Документ №')} {doc_code}*",
-        f"📅 Дата: {formatted_date}",
+        f"📅 {t('wholesale.date', lang_code, default='Дата')}: {formatted_date}",
     ])
     
     if warehouse_name:

@@ -150,7 +150,7 @@ def format_payment_notification(
     message_parts.extend([
         f"{direction_emoji} *{direction_text}*",
         f"📄 *{t('payment.document-number', lang_code, default='Документ №')} {doc_code}*",
-        f"📅 Дата: {formatted_date}",
+        f"📅 {t('payment.date', lang_code, default='Дата')}: {formatted_date}",
     ])
     
     if warehouse_name:
