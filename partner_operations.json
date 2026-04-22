@@ -1,0 +1,122 @@
+{
+    "ok": true,
+    "result": [
+        {
+            "id": 12,
+            "group": {
+                "id": 1,
+                "parent_id": 0,
+                "name": "Поставщики",
+                "child_count": 0,
+                "last_update": 1753857759
+            },
+            "deleted_mark": false,
+            "fields": [
+                {
+                    "key": "field_retro_type",
+                    "name": "Тип ретро",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_retro_cycle",
+                    "name": "Цикл ретро",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_retro_date",
+                    "name": "Дата начисления ретро",
+                    "data_type": "int",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_retro_percent",
+                    "name": "Процент ретро",
+                    "data_type": "decimal",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_payout_type",
+                    "name": "Тип выплаты",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_payout_days",
+                    "name": "Кол-во дней",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_payout_prepay_percent",
+                    "name": "Процент предоплаты",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_payout_hanging_debt",
+                    "name": "Сумма висящего долга",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_payout_status_color",
+                    "name": "Цвет статуса контрагента",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_payout_description",
+                    "name": "Описание договора по выплатам",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": null
+                },
+                {
+                    "key": "field_rpb_telegram_id",
+                    "name": "Телерам ID для RegosPartnerBot",
+                    "data_type": "string",
+                    "is_custom": true,
+                    "required": false,
+                    "value": "320423040234"
+                }
+            ],
+            "last_update": 1772461337,
+            "legal_status": "Legal",
+            "name": "Same Name As Before",
+            "fullname": "test",
+            "boss_name": "test",
+            "address": "",
+            "phones": "973923303, 915316421",
+            "description": "",
+            "inn": "",
+            "bank_name": "",
+            "mfo": "",
+            "rs": "ru",
+            "oked": "5391703573,652928715",
+            "vat_index": ""
+        }
+    ],
+    "next_offset": 0,
+    "total": 1
+}

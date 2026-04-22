@@ -33,9 +33,9 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingSettings, setEditingSettings] = useState<BotSettings | null>(null)
-  const [formData, setFormData] = useState({ 
-    bot_id: 0, 
-    online_store_stock_id: '', 
+  const [formData, setFormData] = useState({
+    bot_id: 0,
+    online_store_stock_id: '',
     online_store_price_type_id: '',
     online_store_currency_id: '1',
     currency_name: 'сум',
@@ -57,7 +57,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
         api.get('/bot-settings'),
         api.get('/bots'),
       ])
-      
+
       // Ensure responses are arrays
       setSettings(Array.isArray(settingsResponse.data) ? settingsResponse.data : [])
       setBots(Array.isArray(botsResponse.data) ? botsResponse.data : [])
@@ -116,7 +116,7 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingSettings) return
-    
+
     try {
       setError('')
       await api.put(`/bot-settings/${editingSettings.id}`, {
@@ -174,12 +174,12 @@ function BotSettingsManagement({ onUpdate }: BotSettingsManagementProps) {
     <div className="bot-settings-management">
       <div className="section-header">
         <h2>{t("BotSettingsManagement.bot-settings-management", "Bot Settings Management")}</h2>
-        <button 
+        <button
           onClick={() => {
             setEditingSettings(null)
             setFormData({ bot_id: 0, online_store_stock_id: '', online_store_price_type_id: '', online_store_currency_id: '1', currency_name: 'сум', show_online_store: true, can_register: false, partner_group_id: 1 })
             setShowModal(true)
-          }} 
+          }}
           className="add-button"
           disabled={getAvailableBots().length === 0}
         >

@@ -36,7 +36,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
         setError(t('order-detail.error.bot-name-required', 'Bot name is required. Please refresh the page.'))
         return
       }
-      
+
       const url = new URL(`/telegram-webapp/orders/${orderId}`, window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
@@ -150,28 +150,39 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
             <div className="operations-list">
               {operations.map((op, index) => {
                 const amount = op.amount || (op.quantity || 0) * (op.price || 0)
+                const itemImageUrl = typeof op.item === 'object' ? op.item.image_url : undefined
+
                 return (
                   <div key={op.id || index} className="operation-card">
-                    <div className="operation-item-header">
-                      <div className="operation-item-name">
-                        {op.item?.name || op.item?.fullname || t("order-detail.operations.item-name", `Товар #${op.item_id || op.id || index + 1}`, { item_id: op.item_id || op.id || index + 1 })}
+                    {itemImageUrl && (
+                      <div className="operation-image-container">
+                        <img
+                          src={itemImageUrl}
+                          alt={op.item?.name || op.item?.fullname || 'Товар'}
+                          className="operation-image"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
                       </div>
-                      {op.item?.code && (
-                        <div className="operation-item-code">{t("order-detail.operations.code", "Код")}: {op.item.code}</div>
-                      )}
-                    </div>
-                    <div className="operation-details">
-                      <div className="operation-detail-row">
-                        <span className="operation-detail-label">{t("order-detail.operations.quantity", "Количество:")}</span>
-                        <span className="operation-detail-value">{op.quantity || 0}</span>
+                    )}
+                    <div className="operation-content">
+                      <div className="operation-header">
+                        <span className="operation-number">{index + 1}.</span>
+                        <div className="operation-name-group">
+                          <span className="operation-name">
+                            {op.item?.name || op.item?.fullname || t("order-detail.operations.item-name", `Товар #${op.item_id || op.id || index + 1}`, { item_id: op.item_id || op.id || index + 1 })}
+                          </span>
+                          {op.item?.code && (
+                            <span className="operation-item-code">{t("order-detail.operations.code", "Код")}: {op.item.code}</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="operation-detail-row">
-                        <span className="operation-detail-label">{t("order-detail.operations.price", "Цена:")}</span>
-                        <span className="operation-detail-value">{formatPrice(op.price || 0)}</span>
-                      </div>
-                      <div className="operation-detail-row operation-total-row">
-                        <span className="operation-detail-label">{t("order-detail.operations.sum", "Сумма:")}</span>
-                        <span className="operation-detail-value operation-amount">{formatPrice(amount)}</span>
+                      <div className="operation-details">
+                        <div className="operation-line">
+                          <span className="operation-calc">{formatNumber(op.quantity || 0)} × {formatPrice(op.price || 0)}</span>
+                          <span className="operation-item-total">{formatPrice(amount)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -181,7 +192,7 @@ function OrderDetail({ orderId, telegramUserId, partnerId, botName, currencyName
             <div className="order-total">
               <span className="total-label">{t("order-detail.total.title", "Итого к оплате:")}</span>
               <span className="total-value">
-                {formatPrice(calculateTotal())} {order.currency?.name || currencyName}
+                {formatPrice(calculateTotal())}
               </span>
             </div>
           </>

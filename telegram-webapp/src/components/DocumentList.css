@@ -1,12 +1,14 @@
 .document-list {
   padding-left: 0px;
   position: relative;
+  padding-top: 124px;
+  /* Space for the fixed headers */
 }
 
 .document-list-header {
   position: fixed;
   background: none !important;
-  top: 8px;
+  top: 12px;
   z-index: 1000;
   left: 0;
   right: 0;
@@ -14,11 +16,21 @@
   align-items: center;
   background-color: var(--tg-theme-bg-color, #ffffff);
   width: 100%;
-  pointer-events: none; 
+  pointer-events: none;
 }
 
 .header-section {
-  margin-bottom: 16px;
+  position: fixed;
+  top: 0;
+  left: 15px;
+  right: 0;
+  z-index: 990;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  padding-top: 12px;
+  padding-bottom: 4px;
+  margin-bottom: 0;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
 }
 
 .tabs {
@@ -29,8 +41,8 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   z-index: 2000;
-  position: relative; 
-  transform: translateZ(0); 
+  position: relative;
+  transform: translateZ(0);
 }
 
 .tabs button {
@@ -79,6 +91,7 @@
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  padding: 0 16px;
 }
 
 .calendar-button {
@@ -246,11 +259,19 @@
 }
 
 .document-totals-section {
+  position: fixed;
+  top: 108px;
+  left: 15px;
+  right: 15px;
+  z-index: 980;
   background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
   border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
 }
 
 .totals-grid {

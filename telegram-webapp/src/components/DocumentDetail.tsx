@@ -22,6 +22,7 @@ interface Operation {
   item: {
     id: number
     name: string
+    image_url?: string
   } | string
   quantity: number
   price?: number
@@ -43,7 +44,7 @@ function DocumentDetail({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { t } = useLanguage()
-  
+
   useEffect(() => {
     fetchDocumentDetails()
   }, [documentId, documentType])
@@ -75,12 +76,12 @@ function DocumentDetail({
         setIsLoading(false)
         return
       }
-      
+
       const url = new URL(endpoint, window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
       url.searchParams.set('bot_name', botName) // REQUIRED
-      
+
       const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
@@ -169,14 +170,14 @@ function DocumentDetail({
         setIsExporting(false)
         return
       }
-      
+
       const url = new URL(endpoint, window.location.origin)
       const currentLanguage = languageService.getCurrentLanguage()
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
       url.searchParams.set('bot_name', botName) // REQUIRED
       url.searchParams.set('lang_code', currentLanguage)
-      
+
       const response = await apiFetch(url.pathname + url.search, {
         method: 'POST'
       })
@@ -234,8 +235,8 @@ function DocumentDetail({
         </button>
         <div className="header-row">
           <h2>{getDocumentTypeLabel()}</h2>
-          <button 
-            onClick={handleExport} 
+          <button
+            onClick={handleExport}
             className="export-button"
             disabled={isExporting}
           >
@@ -277,7 +278,7 @@ function DocumentDetail({
           <div className="info-row">
             <span className="info-label">{t('document-detail.info.exchange-rate', 'Курс обмена:')}</span>
             <span className="info-value">
-              {typeof document.exchange_rate === 'number' 
+              {typeof document.exchange_rate === 'number'
                 ? formatNumber(document.exchange_rate, 4)
                 : document.exchange_rate}
             </span>
@@ -295,20 +296,36 @@ function DocumentDetail({
               const itemName = typeof op.item === 'object' ? op.item.name : op.item || t('document-detail.operations.unknown-item', 'Неизвестный товар')
               const price = useCost ? (op.cost || 0) : (op.price || 0)
               const itemTotal = op.quantity * price
+              const itemImageUrl = typeof op.item === 'object' ? op.item.image_url : undefined
 
               return (
                 <div key={op.id || idx} className="operation-item">
-                  <div className="operation-header">
-                    <span className="operation-number">{idx + 1}.</span>
-                    <span className="operation-name">{itemName}</span>
-                  </div>
-                  <div className="operation-details">
-                    <div className="operation-line">
-                      {formatNumber(op.quantity)} × {formatNumber(price)} = {formatNumber(itemTotal)}
+                  {itemImageUrl && (
+                    <div className="operation-image-container">
+                      <img
+                        src={itemImageUrl}
+                        alt={itemName}
+                        className="operation-image"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
                     </div>
-                    {op.description && (
-                      <div className="operation-description">{op.description}</div>
-                    )}
+                  )}
+                  <div className="operation-content">
+                    <div className="operation-header">
+                      <span className="operation-number">{idx + 1}.</span>
+                      <span className="operation-name">{itemName}</span>
+                    </div>
+                    <div className="operation-details">
+                      <div className="operation-line">
+                        <span className="operation-calc">{formatNumber(op.quantity)} × {formatNumber(price)}</span>
+                        <span className="operation-item-total">{formatNumber(itemTotal)}</span>
+                      </div>
+                      {op.description && (
+                        <div className="operation-description">{op.description}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -328,18 +345,13 @@ function DocumentDetail({
           <span className="total-label">{t("document-detail.total.total-payment", "Итого к оплате:")}</span>
           <span className="total-value total-amount">
             {formatNumber(total)}
-            {document.currency && (
-              <span className="currency">
-                {' '}{typeof document.currency === 'object' ? document.currency.name : document.currency}
-              </span>
-            )}
           </span>
         </div>
         {document.exchange_rate && document.exchange_rate !== 1 && document.exchange_rate !== '1' && document.exchange_rate !== 1.0 && (
           <div className="total-row">
             <span className="total-label">{t("document-detail.total.exchange-rate", "Курс обмена:")}</span>
             <span className="total-value">
-              {typeof document.exchange_rate === 'number' 
+              {typeof document.exchange_rate === 'number'
                 ? formatNumber(document.exchange_rate, 4)
                 : document.exchange_rate}
             </span>

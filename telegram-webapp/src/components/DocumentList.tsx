@@ -41,27 +41,24 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
   const [documentTotals, setDocumentTotals] = useState<DocumentTotals>({})
   const [showTotalsSection, setShowTotalsSection] = useState(false)
   const { t } = useLanguage()
-  // Set default dates to current month
-  const getCurrentMonthDates = () => {
+  // Set default dates from January 1 of current year to current day
+  const getDefaultDates = () => {
     const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
+    const pad = (num: number) => num.toString().padStart(2, '0')
 
     return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
+      start: `${now.getFullYear()}-01-01`,
+      end: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
     }
   }
 
   // Date picker state (temporary, for UI)
-  const [startDate, setStartDate] = useState(getCurrentMonthDates().start)
-  const [endDate, setEndDate] = useState(getCurrentMonthDates().end)
-  
+  const [startDate, setStartDate] = useState(getDefaultDates().start)
+  const [endDate, setEndDate] = useState(getDefaultDates().end)
+
   // Applied dates (used for fetching data)
-  const [appliedStartDate, setAppliedStartDate] = useState(getCurrentMonthDates().start)
-  const [appliedEndDate, setAppliedEndDate] = useState(getCurrentMonthDates().end)
+  const [appliedStartDate, setAppliedStartDate] = useState(getDefaultDates().start)
+  const [appliedEndDate, setAppliedEndDate] = useState(getDefaultDates().end)
 
   useEffect(() => {
     // Only fetch if botName is available
@@ -131,14 +128,14 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
           console.error('bot_name is required but not available')
           return
         }
-        
+
         const url = new URL(endpoint, window.location.origin)
         url.searchParams.set('telegram_user_id', telegramUserId.toString())
         url.searchParams.set('partner_id', partnerId.toString())
         url.searchParams.set('start_date', appliedStartDate) // Use applied dates
         url.searchParams.set('end_date', appliedEndDate) // Use applied dates
         url.searchParams.set('bot_name', botName) // REQUIRED
-        
+
         const response = await apiFetch(url.pathname + url.search)
         const data = await response.json()
 
@@ -195,7 +192,7 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
       setIsLoading(false)
       return
     }
-    
+
     setIsLoading(true)
     setError(null)
 
@@ -222,10 +219,10 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
       const url = new URL(endpoint, window.location.origin)
       url.searchParams.set('telegram_user_id', telegramUserId.toString())
       url.searchParams.set('partner_id', partnerId.toString())
-      url.searchParams.set('start_date', startDate)
-      url.searchParams.set('end_date', endDate)
+      url.searchParams.set('start_date', appliedStartDate)
+      url.searchParams.set('end_date', appliedEndDate)
       url.searchParams.set('bot_name', botName) // REQUIRED
-      
+
       const response = await apiFetch(url.pathname + url.search)
       const data = await response.json()
 
@@ -280,8 +277,8 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
     }
   }
 
-  const resetToCurrentMonth = () => {
-    const dates = getCurrentMonthDates()
+  const resetToYear = () => {
+    const dates = getDefaultDates()
     setStartDate(dates.start)
     setEndDate(dates.end)
     // Apply the reset dates immediately
@@ -379,8 +376,8 @@ function DocumentList({ telegramUserId, partnerId, botName, onBack }: DocumentLi
                 </div>
               </div>
               <div className="date-picker-actions">
-                <button className="reset-button" onClick={resetToCurrentMonth}>
-                  {t('document-list.date-picker.current-month', 'Текущий месяц')}
+                <button className="reset-button" onClick={resetToYear}>
+                  {t('document-list.date-picker.current-year', 'Текущий год')}
                 </button>
                 <button className="apply-button" onClick={handleDateChange}>
                   {t('document-list.date-picker.apply', 'Применить')}

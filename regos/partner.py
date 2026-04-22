@@ -36,7 +36,11 @@ async def search_partner_by_phone(
         # Remove common formatting characters
         normalized_phone = phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
         # Remove + prefix if present for search (REGOS might store without +)
-        search_phone = normalized_phone.lstrip("+")
+        phone = normalized_phone.lstrip("+")
+        if phone.startswith("998"):
+            phone = phone[3:]
+
+        search_phone = phone
         
         # Partner/Get endpoint with search parameter
         # According to REGOS docs, search can match phones field

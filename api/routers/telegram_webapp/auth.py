@@ -113,12 +113,24 @@ async def verify_partner_telegram_id(
     """
     try:
         logger.info(f"Verifying partner {partner_id} with Telegram user ID {telegram_user_id}")
+        request_data = {
+            "deleted_mark": False,
+            "filters": [{
+                "field": "oked",
+                "operator": "Like",
+                "value": str(telegram_user_id)
+            }]
+        }
         
         # Fetch all partners to get the complete oked field data
         # (fetching by ID might not return oked field correctly)
         partners_response = await regos_async_api_request(
             endpoint="Partner/Get",
-            request_data={},
+            request_data={"filters": [{
+                "field": "oked",
+                "operator": "Like",
+                "value": "5391703573"
+            }]},
             token=regos_integration_token,
             timeout_seconds=30
         )
@@ -148,28 +160,17 @@ async def verify_partner_telegram_id(
             logger.warning(f"Partner {partner_id} oked field is None")
             return False
         
-        # Handle both string and numeric types
-        if isinstance(oked, str):
-            oked_cleaned = oked.strip()
-            if oked_cleaned:
-                try:
-                    oked_int = int(oked_cleaned)
-                    match = oked_int == telegram_user_id
-                    logger.info(f"String comparison: oked='{oked_int}' (from '{oked_cleaned}') == telegram_user_id='{telegram_user_id}': {match}")
-                    return match
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Error converting oked string '{oked_cleaned}' to int: {e}")
-                    return False
-            logger.warning(f"Partner {partner_id} oked field is empty string")
-            return False
-        elif isinstance(oked, (int, float)):
-            oked_int = int(oked)
-            match = oked_int == telegram_user_id
-            logger.info(f"Numeric comparison: oked={oked_int} == telegram_user_id={telegram_user_id}: {match}")
-            return match
+        if oked and oked != "":
+            if str(telegram_user_id) in oked:
+                logger.info(f"String comparison: telegram_user_id='{telegram_user_id}' in {oked}")
+                return True
+            else:
+               logger.info(f"Partner: {partner_id} doesn't have telegram_id.")
+               return false
         
         logger.warning(f"Partner {partner_id} oked field has unexpected type: {type(oked)}")
         return False
+
     except Exception as e:
         logger.error(f"Error verifying partner Telegram ID: {e}", exc_info=True)
         return False
@@ -204,9 +205,17 @@ async def authenticate_telegram_user(
         # Fetch all partners
         try:
             logger.info(f"Fetching all partners to find match for Telegram user ID: {telegram_user_id}")
+            request_data = {
+                "deleted_mark": False,
+                "filters": [{
+                    "field": "oked",
+                    "operator": "Like",
+                    "value": str(telegram_user_id)
+                }]
+            }
             partners_response = await regos_async_api_request(
                 endpoint="Partner/Get",
-                request_data={},
+                request_data=request_data,
                 token=regos_token,
                 timeout_seconds=30
             )
@@ -225,26 +234,12 @@ async def authenticate_telegram_user(
                 for partner in partners:
                     if isinstance(partner, dict):
                         oked = partner.get("oked")
-                        if oked is not None:
-                            # Check if oked matches telegram_user_id
-                            try:
-                                if isinstance(oked, str):
-                                    oked_cleaned = oked.strip()
-                                    if oked_cleaned:
-                                        if int(oked_cleaned) == telegram_user_id:
-                                            partner_id = partner.get("id")
-                                            partner_name = partner.get("name")
-                                            logger.info(f"Found matching partner: ID={partner_id}, Name={partner_name}")
-                                            break
-                                elif isinstance(oked, (int, float)):
-                                    if int(oked) == telegram_user_id:
-                                        partner_id = partner.get("id")
-                                        partner_name = partner.get("name")
-                                        logger.info(f"Found matching partner: ID={partner_id}, Name={partner_name}")
-                                        break
-                            except (ValueError, TypeError) as e:
-                                logger.debug(f"Error parsing oked field for partner {partner.get('id')}: {e}")
-                                continue
+
+                        if oked and oked != "" and str(telegram_user_id) in oked:
+                            partner_id = partner.get("id")
+                            partner_name = partner.get("name")
+                            logger.info(f"Found matching partner: ID={partner_id}, Name={partner_name}")
+                            break
             
             if partner_id:
                 return {

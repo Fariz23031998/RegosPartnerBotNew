@@ -802,17 +802,33 @@ class BotManager:
                     t("bot_manager.contact-shared.already-registered", lang_code, default=contact_shared_already_registered_text, partner_name=partner_name, partner_id=partner_id)
                 )
             
-            # Partner found by phone number but not linked to this Telegram ID - update it
-            logger.info(f"Found partner {partner_id} ({partner_name}) by phone number {phone_number}, updating with Telegram chat ID: {chat_id}")
+
+            if partner_oked and str(partner_oked) != "":
+                # Partner found by phone number but linked to another Telegram ID. Adding telegram_id without removing old one.
+                logger.info(f"Partner {partner_id} ({partner_name}) already linked to another Telegram chat ID: {partner_oked}. Adding new telegram_id: {chat_id} without removing old")
+                new_oked = str(partner_oked) + "," + str(chat_id)
+                success = await update_partner_telegram_id(
+                    regos_integration_token,
+                    partner_id,
+                    new_oked,
+                    partner,
+                    lang_code=lang_code
+                )
+
             
-            # Update partner's oked field with Telegram chat ID
-            success = await update_partner_telegram_id(
-                regos_integration_token,
-                partner_id,
-                str(chat_id),
-                partner,
-                lang_code=lang_code
-            )
+            else:
+
+                # Partner found by phone number but not linked to this Telegram ID - update it
+                logger.info(f"Found partner {partner_id} ({partner_name}) by phone number {phone_number}, updating with Telegram chat ID: {chat_id}")
+                
+                # Update partner's oked field with Telegram chat ID
+                success = await update_partner_telegram_id(
+                    regos_integration_token,
+                    partner_id,
+                    str(chat_id),
+                    partner,
+                    lang_code=lang_code
+                )
             
             if success:
                 contact_shared_success_text = f"✅ Отлично, {partner_name}!\n\n"
