@@ -158,23 +158,30 @@ async def webhook_handler(token_prefix: str, request: Request):
                 logger.warning(f"Bot {bot_obj.bot_id} is inactive")
                 raise HTTPException(status_code=404, detail="Bot is inactive")
             
-            logger.info(f"Processing update for bot: {bot_obj.bot_name or bot_obj.telegram_token[:10]}")
-            logger.debug(f"Update structure: {list(update_data.keys())}")
-            
-            # Process the update with bot object (includes regos_integration_token)
-            try:
-                result = await bot_manager.process_update(
-                    bot_obj.telegram_token, 
-                    update_data,
-                    regos_integration_token=bot_obj.regos_integration_token
-                )
-                
-                logger.info(f"Successfully processed update for bot {bot_obj.bot_id}, result: {result is not None}")
-                return {"ok": True, "result": result}
-            except Exception as e:
-                logger.error(f"Error in process_update for bot {bot_obj.bot_id}: {e}", exc_info=True)
-                # Still return ok to Telegram to avoid retries
-                return {"ok": True, "error": str(e)}
+            token = bot_obj.telegram_token
+            bot_id = bot_obj.bot_id
+            bot_name = bot_obj.bot_name
+            regos_token = bot_obj.regos_integration_token
+
+        # Release the database session before talking to Telegram or REGOS.
+        logger.info(f"Processing update for bot: {bot_name or token[:10]}")
+        logger.debug(f"Update structure: {list(update_data.keys())}")
+
+        try:
+            result = await bot_manager.process_update(
+                token,
+                update_data,
+                regos_integration_token=regos_token,
+                bot_id=bot_id,
+                bot_name=bot_name,
+            )
+
+            logger.info(f"Successfully processed update for bot {bot_id}, result: {result is not None}")
+            return {"ok": True, "result": result}
+        except Exception as e:
+            logger.error(f"Error in process_update for bot {bot_id}: {e}", exc_info=True)
+            # Still return ok to Telegram to avoid retries
+            return {"ok": True, "error": str(e)}
     
     except HTTPException:
         raise

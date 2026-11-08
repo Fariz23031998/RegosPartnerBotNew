@@ -3,9 +3,11 @@ Scheduler for executing bot schedules (e.g., partner balance notifications).
 Uses APScheduler for robust scheduling.
 """
 import asyncio
+import fcntl
 import logging
 import json
-from datetime import datetime, time
+import os
+from datetime import datetime, time, timedelta
 from typing import List, Optional, Dict
 
 
@@ -32,11 +34,26 @@ class ScheduleExecutor:
     def __init__(self):
         self.scheduler: Optional[AsyncIOScheduler] = None
         self.job_ids: set = set()  # Track job IDs to avoid duplicates
-    
+        self._scheduler_lock_file = None
+
+    def _acquire_scheduler_lock(self) -> bool:
+        lock_path = os.getenv('SCHEDULER_LOCK_PATH', '/tmp/regos-partner-bot-scheduler.lock')
+        handle = open(lock_path, 'a+')
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            handle.close()
+            logger.info('Scheduler is already running in another process; this worker will not run schedules')
+            return False
+        self._scheduler_lock_file = handle
+        return True
+
     async def start(self):
         """Start the scheduler"""
         if self.scheduler and self.scheduler.running:
             logger.warning("Scheduler is already running")
+            return
+        if not self._acquire_scheduler_lock():
             return
         
         self.scheduler = AsyncIOScheduler()
@@ -52,6 +69,15 @@ class ScheduleExecutor:
         )
         logger.info("Added periodic task to check expired subscriptions")
         
+        # Pick up schedule edits made on the other worker.
+        self.scheduler.add_job(
+            self._reload_if_requested,
+            trigger="interval",
+            seconds=5,
+            id="reload_schedules_signal",
+            replace_existing=True,
+        )
+
         # Load all schedules from database
         await self._load_schedules()
     
@@ -60,6 +86,13 @@ class ScheduleExecutor:
         if self.scheduler:
             self.scheduler.shutdown(wait=True)
             self.job_ids.clear()
+        if self._scheduler_lock_file is not None:
+            try:
+                fcntl.flock(self._scheduler_lock_file.fileno(), fcntl.LOCK_UN)
+                self._scheduler_lock_file.close()
+            except Exception:
+                pass
+            self._scheduler_lock_file = None
         logger.info("Scheduler stopped")
     
     async def _load_schedules(self):
@@ -120,6 +153,7 @@ class ScheduleExecutor:
             )
             self.job_ids.add(job_id)
             logger.info(f"Successfully added schedule job {job_id} (schedule_id={schedule.id}, type={schedule.schedule_type}, option={schedule.schedule_option}, time={schedule.time}) with trigger: {trigger}")
+            self._catch_up_if_missed(schedule)
         except Exception as e:
             logger.error(f"Failed to add schedule job {job_id}: {e}", exc_info=True)
     
@@ -187,6 +221,69 @@ class ScheduleExecutor:
             logger.error(f"Error creating trigger for schedule {schedule.id}: {e}", exc_info=True)
             return None
     
+    def _reload_signal_path(self) -> str:
+        return os.getenv("SCHEDULER_RELOAD_PATH", "/tmp/regos-partner-bot-scheduler.reload")
+
+    def _request_external_reload(self):
+        """Ask the worker that owns the scheduler to load schedules again."""
+        path = self._reload_signal_path()
+        tmp_path = f"{path}.{os.getpid()}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            handle.write(datetime.now().isoformat())
+        os.replace(tmp_path, path)
+
+    async def _reload_if_requested(self):
+        path = self._reload_signal_path()
+        if not os.path.exists(path):
+            return
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            return
+        logger.info("Reloading schedules after a change from another process")
+        await self._reload_local_schedules()
+
+    def _claim_run(self, schedule_id: int, time_str: str) -> bool:
+        """Allow one send per schedule time per day, across both workers."""
+        day = datetime.now().date().isoformat()
+        safe_time = (time_str or "").replace(":", "")
+        path = f"/tmp/regos-partner-bot-ran-{schedule_id}-{day}-{safe_time}"
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            os.close(fd)
+            return True
+        except FileExistsError:
+            return False
+
+    def _scheduled_today(self, schedule) -> bool:
+        if schedule.schedule_option == "daily":
+            return True
+        if schedule.schedule_option != "weekdays" or not schedule.schedule_value:
+            return False
+        try:
+            days = json.loads(schedule.schedule_value) if isinstance(schedule.schedule_value, str) else schedule.schedule_value
+        except Exception:
+            return False
+        return isinstance(days, list) and datetime.now().weekday() in days
+
+    def _catch_up_if_missed(self, schedule):
+        """Send a notification whose clock time already passed a few minutes ago."""
+        if not self._scheduled_today(schedule):
+            return
+        try:
+            hour, minute = map(int, schedule.time.split(":"))
+        except (TypeError, ValueError):
+            return
+        now = datetime.now()
+        scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        lag = now - scheduled
+        if lag <= timedelta(0) or lag > timedelta(minutes=45):
+            return
+        logger.info(
+            f"Schedule {schedule.id} was due at {schedule.time} and has not run; sending now"
+        )
+        asyncio.create_task(self._execute_schedule_job(schedule.id))
+
     async def _execute_schedule_job(self, schedule_id: int):
         """Execute a schedule job (called by APScheduler)"""
         try:
@@ -203,6 +300,10 @@ class ScheduleExecutor:
                 
                 if not schedule.enabled:
                     logger.info(f"Schedule {schedule_id} is disabled, skipping")
+                    return
+
+                if not self._claim_run(schedule.id, schedule.time):
+                    logger.info(f"Schedule {schedule.id} at {schedule.time} already ran today")
                     return
                 
                 logger.info(f"Executing schedule {schedule_id} (type: {schedule.schedule_type})")
@@ -273,18 +374,19 @@ class ScheduleExecutor:
     async def reload_schedules(self):
         """Reload all schedules from database (useful when schedules are updated)"""
         if not self.scheduler or not self.scheduler.running:
-            logger.warning("Scheduler is not running, cannot reload schedules")
+            self._request_external_reload()
+            logger.info("Asked the scheduler process to reload schedules")
             return
-        
-        # Remove all existing schedule jobs
+        await self._reload_local_schedules()
+
+    async def _reload_local_schedules(self):
+        """Replace in-memory jobs with the schedules currently stored in the database."""
         for job_id in list(self.job_ids):
             try:
                 self.scheduler.remove_job(job_id)
-            except:
+            except Exception:
                 pass
         self.job_ids.clear()
-        
-        # Reload schedules
         await self._load_schedules()
         logger.info("Schedules reloaded")
     

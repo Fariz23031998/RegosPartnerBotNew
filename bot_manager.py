@@ -11,16 +11,44 @@ from services.translator_service import translator_service
 from core.message_utils import split_message
 from core.telegram_webhook import (
     get_bot_info,
-    set_webhook,
     check_webhook_info,
     verify_webhook_accessible,
     delete_webhook,
     set_chat_menu_button
 )
+from pending_state import SharedDict, pending_state_path
 
 logger = logging.getLogger(__name__)
 
 t = translator_service.get
+
+
+
+async def _set_webhook_keep_pending(token: str, webhook_url: str, bot_name: Optional[str] = None) -> bool:
+    """Point Telegram at this server without discarding updates still waiting to be delivered."""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"https://api.telegram.org/bot{token}/setWebhook",
+                json={
+                    "url": webhook_url,
+                    "allowed_updates": ["message", "callback_query"],
+                    "drop_pending_updates": False,
+                },
+                timeout=10.0,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("ok"):
+                    logger.info(f"Webhook set for {bot_name or token[:10]}: {webhook_url}")
+                    return True
+                logger.error(f"Failed to set webhook: {data.get('description')}")
+            else:
+                logger.error(f"HTTP error setting webhook: {response.status_code}")
+            return False
+        except Exception as e:
+            logger.error(f"Error setting webhook: {e}")
+            return False
 
 
 class BotManager:
@@ -29,15 +57,11 @@ class BotManager:
     def __init__(self):
         self.bots: Dict[str, dict] = {}  # token -> bot_info
         self.webhook_url_base: Optional[str] = None
-        # Temporary storage for contact data while user selects notification language
-        # chat_id -> {phone, first_name, last_name, bot_id}
-        self.pending_lang_selection: Dict[int, dict] = {}
-        # Temporary storage for registration data (chat_id -> registration_data)
-        # Cleared after registration or timeout
-        self.pending_registrations: Dict[int, dict] = {}
-        # Temporary storage for registration data (chat_id -> registration_data)
-        # Cleared after registration or timeout
-        self.pending_registrations: Dict[int, dict] = {}
+        # Shared across worker processes. A contact and the follow-up button
+        # click are often delivered to different workers.
+        state_path = pending_state_path()
+        self.pending_lang_selection = SharedDict(state_path, "lang")
+        self.pending_registrations = SharedDict(state_path, "reg")
     
     def set_webhook_base_url(self, base_url: str):
         """Set the base URL for webhooks"""
@@ -46,12 +70,16 @@ class BotManager:
     async def register_bot(self, token: str, bot_name: Optional[str] = None, bot_id: Optional[int] = None) -> dict:
         """Register a new bot and set up its webhook"""
         if token in self.bots:
-            logger.warning(f"Bot with token {token[:10]}... already registered, re-setting webhook...")
+            if bot_id is not None:
+                self.bots[token]["bot_id"] = bot_id
+            if bot_name:
+                self.bots[token]["bot_name"] = bot_name
+            logger.info(f"Bot {token[:10]}... is already registered in this process; refreshing webhook")
             # Re-setup webhook in case it wasn't configured before
             if self.webhook_url_base:
                 webhook_path = f"/webhook/{token[:10]}"
                 webhook_url = f"{self.webhook_url_base}{webhook_path}"
-                if await set_webhook(token, webhook_url, bot_name or self.bots[token].get("bot_name")):
+                if await _set_webhook_keep_pending(token, webhook_url, bot_name or self.bots[token].get("bot_name")):
                     await check_webhook_info(token)
                 # Re-set menu button with bot_name in URL
                 # Use TELEGRAM_WEB_BASE_URL from config if available, otherwise fallback to webhook_url_base
@@ -90,7 +118,7 @@ class BotManager:
         if self.webhook_url_base:
             webhook_path = f"/webhook/{token[:10]}"
             webhook_url = f"{self.webhook_url_base}{webhook_path}"
-            if await set_webhook(token, webhook_url, bot_data["bot_name"]):
+            if await _set_webhook_keep_pending(token, webhook_url, bot_data["bot_name"]):
                 await check_webhook_info(token)
         else:
             logger.warning(f"Webhook base URL not set, bot {bot_data['bot_name']} registered but webhook not configured")
@@ -128,7 +156,9 @@ class BotManager:
         self, 
         token: str, 
         update: dict, 
-        regos_integration_token: Optional[str] = None
+        regos_integration_token: Optional[str] = None,
+        bot_id: Optional[int] = None,
+        bot_name: Optional[str] = None,
     ) -> Optional[dict]:
         """
         Process an incoming update for a specific bot.
@@ -138,12 +168,29 @@ class BotManager:
             update: Telegram update object
             regos_integration_token: Optional REGOS integration token for partner operations
         """
-        if token not in self.bots:
-            logger.warning(f"Received update for unregistered bot: {token[:10]}...")
-            logger.warning(f"Registered bots: {list(self.bots.keys())[:3]}...")  # Log first few for debugging
-            return None
-        
-        bot_data = self.bots[token]
+        bot_data = self.bots.get(token)
+        if bot_data is None:
+            # Another worker may have registered this bot, or this process
+            # missed it at startup. The webhook already confirmed the bot in
+            # the database, so answer the user instead of dropping the update.
+            logger.warning(
+                "Bot %s is not loaded in this worker; handling the update from the database record",
+                token[:10],
+            )
+            bot_data = {
+                "token": token,
+                "bot_name": bot_name or "Unknown",
+                "bot_info": {},
+                "bot_id": bot_id,
+                "registered_at": datetime.utcnow(),
+            }
+            self.bots[token] = bot_data
+        else:
+            if bot_id is not None:
+                bot_data["bot_id"] = bot_id
+            if bot_name:
+                bot_data["bot_name"] = bot_name
+
         bot_name = bot_data["bot_name"]
         
         logger.info(f"Processing update for bot {bot_name} (token: {token[:10]}...)")
@@ -394,7 +441,13 @@ class BotManager:
                         else:
                             logger.warning(f"Failed to send message chunk {idx + 1}/{len(chunks)}: {data.get('description', 'Unknown error')}")
                     else:
-                        logger.warning(f"HTTP error sending message chunk {idx + 1}/{len(chunks)}: {response.status_code}")
+                        logger.warning(
+                            "HTTP error sending message chunk %s/%s: %s %s",
+                            idx + 1,
+                            len(chunks),
+                            response.status_code,
+                            response.text[:300],
+                        )
                 except Exception as e:
                     logger.error(f"Error sending message chunk {idx + 1}/{len(chunks)}: {e}")
                     # Continue sending remaining chunks even if one fails
@@ -417,32 +470,40 @@ class BotManager:
         async with httpx.AsyncClient() as client:
             try:
                 with open(document_path, 'rb') as file:
-                    files = {
-                        'document': (os.path.basename(document_path), file, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                    }
-                    data = {
-                        'chat_id': chat_id
-                    }
-                    if caption:
-                        data['caption'] = caption
-                    
-                    response = await client.post(
-                        f"https://api.telegram.org/bot{token}/sendDocument",
-                        data=data,
-                        files=files,
-                        timeout=30.0
+                    document_bytes = file.read()
+                files = {
+                    'document': (
+                        os.path.basename(document_path),
+                        document_bytes,
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        if result.get("ok"):
-                            logger.info(f"Successfully sent document to chat {chat_id}")
-                            return result.get("result")
-                        else:
-                            logger.error(f"Failed to send document: {result.get('description')}")
-                    else:
-                        logger.error(f"HTTP error sending document: {response.status_code}")
-                    return None
+                }
+                data = {
+                    'chat_id': str(chat_id)
+                }
+                if caption:
+                    data['caption'] = caption
+
+                response = await client.post(
+                    f"https://api.telegram.org/bot{token}/sendDocument",
+                    data=data,
+                    files=files,
+                    timeout=30.0
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("ok"):
+                        logger.info(f"Successfully sent document to chat {chat_id}")
+                        return result.get("result")
+                    logger.error(f"Failed to send document: {result.get('description')}")
+                else:
+                    logger.error(
+                        "HTTP error sending document: %s %s",
+                        response.status_code,
+                        response.text[:300],
+                    )
+                return None
             except Exception as e:
                 logger.error(f"Error sending document: {e}", exc_info=True)
                 return None
